@@ -5,7 +5,7 @@ import * as d3 from "d3";
 const NAVY = "#0a1628";
 const INITIAL_POINTS = 2000;
 const BULLET_DURATION_MS = 1000;
-const WARP_DURATION_MS = 3000;
+const WARP_DURATION_MS = 2000;
 const WARP_STREAK_COUNT = 600;
 const LOGO_ZOOM_MS = 1500;
 
@@ -49,24 +49,20 @@ function warpElement(
   px: number, py: number,
   cx: number, cy: number,
   maxDist: number,
-  stretchDur: number, flyDur: number,
+  duration: number,
 ): void {
   const angle = Math.atan2(py - cy, px - cx);
   const dist = Math.sqrt((px - cx) ** 2 + (py - cy) ** 2);
-  const streakLen = 20 + dist * 0.2;
+  const streakLen = 40 + dist * 0.3;
 
   el.transition()
-    .duration(stretchDur)
-    .attr("x2", px + Math.cos(angle) * streakLen)
-    .attr("y2", py + Math.sin(angle) * streakLen)
-    .attr("stroke-width", 1.5)
-    .transition()
-    .duration(flyDur)
+    .duration(duration)
     .ease(d3.easeCubicIn)
-    .attr("x1", cx + Math.cos(angle) * maxDist * 0.9)
-    .attr("y1", cy + Math.sin(angle) * maxDist * 0.9)
+    .attr("x1", cx + Math.cos(angle) * maxDist)
+    .attr("y1", cy + Math.sin(angle) * maxDist)
     .attr("x2", cx + Math.cos(angle) * (maxDist + streakLen * 5))
     .attr("y2", cy + Math.sin(angle) * (maxDist + streakLen * 5))
+    .attr("stroke-width", 1.5)
     .attr("opacity", 0)
     .remove();
 }
@@ -95,7 +91,7 @@ function startLogoZoom(): void {
     .attr("opacity", "0");
 
   d3.select(logoTextRef.value)
-    .transition().duration(LOGO_ZOOM_MS * 0.3)
+    .transition().delay(LOGO_ZOOM_MS * 0.4).duration(LOGO_ZOOM_MS * 0.3)
     .attr("opacity", "0");
 
   const tid = setTimeout(() => {
@@ -122,7 +118,7 @@ function startWarp(): void {
     const el = d3.select(this as SVGLineElement);
     const px = +el.attr("x1");
     const py = +el.attr("y1");
-    warpElement(el, px, py, cx, cy, maxDist, 400, 2500);
+    warpElement(el, px, py, cx, cy, maxDist, 2800);
   });
 
   const interval = WARP_DURATION_MS / WARP_STREAK_COUNT;
@@ -146,7 +142,7 @@ function startWarp(): void {
         .attr("stroke-linecap", "round")
         .attr("opacity", 0.6) as unknown as d3.Selection<SVGLineElement, unknown, null, undefined>;
 
-      warpElement(el, px, py, cx, cy, maxDist, Math.min(150, flyTime * 0.15), flyTime);
+      warpElement(el, px, py, cx, cy, maxDist, flyTime);
     }, spawnDelay);
 
     timeoutIds.push(tid);
