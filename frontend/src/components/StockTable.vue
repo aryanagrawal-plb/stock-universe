@@ -21,12 +21,16 @@ import {
   FLEX_COLUMNS,
 } from "../constants/tableColumns";
 
-const props = defineProps<{
-  stocks: Stock[];
-  isLoading: boolean;
-  error: string | null;
-  pinnedCodes: Set<string>;
-}>();
+const props = withDefaults(
+  defineProps<{
+    stocks: Stock[];
+    viewMode?: string;
+    isLoading: boolean;
+    error: string | null;
+    pinnedCodes: Set<string>;
+  }>(),
+  { viewMode: "" }
+);
 
 const emit = defineEmits<{
   "toggle-pin": [code: string];
