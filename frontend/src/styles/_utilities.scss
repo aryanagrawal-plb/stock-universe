@@ -1,0 +1,70 @@
+// Custom utility classes matching PremiaLab platform
+
+.hover-grey {
+  &:hover { background: $gray-200; }
+}
+
+.text-monospace {
+  font-family: $font-family-monospace !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.bg-info-lightest {
+  background: rgba($info, 0.06) !important;
+}
+
+.border-gray-500 {
+  border-color: $gray-500 !important;
+}
+
+.highlighted {
+  background: rgba(50, 50, 50, 0.15);
+}
+
+.text-info-accent {
+  color: $info !important;
+}
+
+// Font-size utilities
+@each $name, $size in $font-sizes {
+  .fs-#{$name} {
+    font-size: $size !important;
+  }
+}
+
+// Squared icon button (navbar, toolbars)
+.squared-center-fa-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+
+  &:hover {
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.4);
+  }
+}
+
+// Global body overrides
+body {
+  font-family: $font-family-base;
+  background: $gray-100;
+  color: $body-gray;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}

@@ -26,191 +26,185 @@ function handleKeydown(e: KeyboardEvent): void {
 </script>
 
 <template>
-  <div class="ai-chat-panel">
-    <div class="ai-header">
-      <span class="ai-label">AI</span>
-      <span class="ai-header-title">Assistant</span>
+  <div class="pl-chat-panel">
+    <div class="pl-chat-header">
+      <span class="pl-chat-badge">AI</span>
+      <span class="pl-chat-title">Assistant</span>
     </div>
 
-    <div ref="messagesEl" class="ai-messages">
-      <div v-if="messages.length === 0 && !isSending" class="ai-empty">
+    <div ref="messagesEl" class="pl-chat-messages">
+      <div v-if="messages.length === 0 && !isSending" class="pl-chat-empty">
         Ask the AI to help filter or analyze stocks.
       </div>
       <div
         v-for="(msg, i) in messages"
         :key="i"
-        class="ai-msg"
+        class="pl-chat-msg"
         :class="msg.role"
       >
-        <span class="ai-msg-role">{{ msg.role === "user" ? "You" : "AI" }}</span>
-        <span class="ai-msg-text">{{ msg.content }}</span>
+        <span class="pl-chat-msg-role">{{ msg.role === "user" ? "You" : "AI" }}</span>
+        <span class="pl-chat-msg-text">{{ msg.content }}</span>
       </div>
-      <div v-if="isSending" class="ai-msg assistant">
-        <span class="ai-msg-role">AI</span>
-        <span class="ai-msg-text typing">Thinking...</span>
+      <div v-if="isSending" class="pl-chat-msg assistant">
+        <span class="pl-chat-msg-role">AI</span>
+        <span class="pl-chat-msg-text pl-typing">Thinking...</span>
       </div>
     </div>
 
-    <div class="ai-input-row">
+    <div class="pl-chat-input-row">
       <input
         v-model="input"
         type="text"
         placeholder="Ask about stocks..."
-        class="ai-input"
+        class="pl-chat-input"
         @keydown="handleKeydown"
       />
       <button
-        class="ai-send"
+        class="pl-chat-send"
         :disabled="isSending || !input.trim()"
         @click="handleSend"
       >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <line x1="22" y1="2" x2="11" y2="13" />
-          <polygon points="22 2 15 22 11 13 2 9 22 2" />
-        </svg>
+        <icon icon="paper-plane" />
       </button>
     </div>
   </div>
 </template>
 
-<style scoped>
-.ai-chat-panel {
+<style scoped lang="scss">
+.pl-chat-panel {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--color-surface);
+  background: #fff;
 }
 
-.ai-header {
+.pl-chat-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--color-border);
+  padding: 10px 16px;
+  border-bottom: 1px solid #d8dde2;
   flex-shrink: 0;
 }
 
-.ai-label {
+.pl-chat-badge {
   padding: 2px 8px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: white;
-  background: var(--color-primary);
+  color: #fff;
+  background: #0c1743;
   border-radius: 4px;
 }
 
-.ai-header-title {
+.pl-chat-title {
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-text);
+  color: #495057;
 }
 
-.ai-messages {
+.pl-chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 14px;
+  padding: 14px 16px;
 }
 
-.ai-empty {
-  color: var(--color-text-muted);
+.pl-chat-empty {
+  color: #bbc1c7;
   font-size: 13px;
   text-align: center;
   padding: 40px 12px;
   line-height: 1.6;
 }
 
-.ai-msg {
-  margin-bottom: 10px;
+.pl-chat-msg {
+  margin-bottom: 12px;
 }
 
-.ai-msg-role {
+.pl-chat-msg-role {
   display: block;
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 2px;
-  color: var(--color-text-muted);
+  margin-bottom: 3px;
+  color: #bbc1c7;
 }
 
-.ai-msg.user .ai-msg-role {
-  color: var(--color-primary);
+.pl-chat-msg.user .pl-chat-msg-role {
+  color: #1a85a1;
 }
 
-.ai-msg.assistant .ai-msg-role {
-  color: var(--color-accent);
+.pl-chat-msg.assistant .pl-chat-msg-role {
+  color: #0c1743;
 }
 
-.ai-msg-text {
-  font-size: 13px;
-  line-height: 1.5;
+.pl-chat-msg-text {
+  font-size: 14px;
+  line-height: 1.55;
   display: block;
   word-break: break-word;
+  color: #4b4b4b;
 }
 
-.typing {
-  color: var(--color-text-muted);
+.pl-typing {
+  color: #bbc1c7;
   font-style: italic;
 }
 
-.ai-input-row {
+.pl-chat-input-row {
   display: flex;
   gap: 8px;
-  padding: 10px 14px;
-  border-top: 1px solid var(--color-border);
+  padding: 10px 16px;
+  border-top: 1px solid #d8dde2;
   flex-shrink: 0;
 }
 
-.ai-input {
+.pl-chat-input {
   flex: 1;
   min-width: 0;
   padding: 7px 10px;
   font-size: 13px;
-  font-family: var(--font-sans);
-  color: var(--color-text);
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  font-family: 'Fira Sans', sans-serif;
+  color: #4b4b4b;
+  background: #f5f7fa;
+  border: 1px solid #d8dde2;
+  border-radius: 0.25rem;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &::placeholder {
+    color: #bbc1c7;
+  }
+
+  &:focus {
+    border-color: #1a85a1;
+    box-shadow: 0 0 0 3px rgba(26, 133, 161, 0.15);
+  }
 }
 
-.ai-input:focus {
-  border-color: var(--color-primary);
-}
-
-.ai-send {
+.pl-chat-send {
   flex-shrink: 0;
   width: 32px;
   height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  background: var(--color-primary);
+  color: #fff;
+  background: #1a85a1;
   border: none;
-  border-radius: var(--radius);
+  border-radius: 0.25rem;
   cursor: pointer;
   transition: background 0.15s;
-}
 
-.ai-send:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-}
+  &:hover:not(:disabled) {
+    background: #167089;
+  }
 
-.ai-send:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
 }
 </style>

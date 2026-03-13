@@ -1,4 +1,4 @@
-import { ref, computed } from "vue";
+import { ref, computed, type Ref } from "vue";
 import type { Stock, FilterChip } from "../types/stock";
 
 function formatMarketCapValue(value: number): string {
@@ -70,6 +70,22 @@ export function useStocks() {
     }
   }
 
+  const pinnedCodes: Ref<Set<string>> = ref(new Set());
+
+  function togglePin(code: string): void {
+    const next = new Set(pinnedCodes.value);
+    if (next.has(code)) {
+      next.delete(code);
+    } else {
+      next.add(code);
+    }
+    pinnedCodes.value = next;
+  }
+
+  const pinnedStocks = computed<Stock[]>(() =>
+    filteredStocks.value.filter((s) => pinnedCodes.value.has(s.code))
+  );
+
   return {
     stocks,
     filteredStocks,
@@ -78,5 +94,8 @@ export function useStocks() {
     error,
     fetchStocks,
     formatMarketCapValue,
+    pinnedCodes,
+    togglePin,
+    pinnedStocks,
   };
 }

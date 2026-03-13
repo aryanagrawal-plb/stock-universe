@@ -1,0 +1,44 @@
+@import "ag-grid-community/styles/ag-grid.css";
+@import "ag-grid-community/styles/ag-theme-alpine.css";
+
+.ag-theme-alpine {
+  --ag-header-background-color:        #{$white};
+  --ag-row-hover-color:                #{$gray-200};
+  --ag-border-color:                   #{$gray-500};
+  --ag-font-family:                    'Fira Sans', sans-serif;
+  --ag-font-size:                      14px;
+  --ag-foreground-color:               #{$body-gray};
+  --ag-header-font-weight:             500;
+  --ag-header-foreground-color:        #{$body-gray};
+  --ag-odd-row-background-color:       #{$white};
+  --ag-background-color:               #{$white};
+  --ag-selected-row-background-color:  rgba(26, 133, 161, 0.08);
+  --ag-range-selection-border-color:   #{$info};
+  --ag-cell-horizontal-padding:        12px;
+  --ag-row-border-color:               #{$gray-500};
+  --ag-header-height:                  42px;
+  --ag-row-height:                     40px;
+
+  .ag-header-cell-label {
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+  }
+
+  .ag-right-aligned-header .ag-header-cell-label {
+    justify-content: flex-end;
+  }
+
+  .ag-column-sorted {
+    background: rgba(50, 50, 50, 0.04);
+  }
+
+  // Pinned top rows (pin-to-top feature)
+  .ag-floating-top {
+    border-bottom: 1px solid rgba(26, 133, 161, 0.2);
+  }
+
+  .ag-floating-top .ag-row {
+    background: rgba(26, 133, 161, 0.06) !important;
+  }
+}

@@ -23,7 +23,6 @@ interface Suggestion {
   display: string;
 }
 
-// Pre-compute unique values for categorical fields only (fast for autocomplete)
 const categoryIndex = computed(() => {
   const allStocks = props.stocks;
   return [
@@ -122,52 +121,32 @@ function handleBackspace(): void {
 </script>
 
 <template>
-  <div class="filter-panel" :class="{ expanded: isExpanded }">
-    <button class="filter-toggle" @click="isExpanded = !isExpanded">
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-      </svg>
-      <span class="filter-toggle-text">Filters</span>
-      <span v-if="filterChips.length > 0" class="filter-badge">{{
+  <div class="pl-filter-panel" :class="{ expanded: isExpanded }">
+    <button class="pl-filter-toggle" @click="isExpanded = !isExpanded">
+      <icon icon="filter" class="pl-filter-icon" />
+      <span class="pl-filter-label">Filters</span>
+      <span v-if="filterChips.length > 0" class="pl-filter-badge">{{
         filterChips.length
       }}</span>
-      <span class="result-count">{{ resultCount.toLocaleString() }} results</span>
-      <svg
-        class="filter-chevron"
-        width="12"
-        height="12"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <polyline points="6 9 12 15 18 9" />
-      </svg>
+      <span class="pl-result-count">{{ resultCount.toLocaleString() }} results</span>
+      <icon
+        :icon="isExpanded ? 'chevron-up' : 'chevron-down'"
+        class="pl-filter-chevron"
+      />
     </button>
 
-    <div v-if="isExpanded" class="filter-body">
-      <div class="search-wrapper">
-        <div class="input-box" @click="focusInput">
+    <div v-if="isExpanded" class="pl-filter-body">
+      <div class="pl-search-wrapper">
+        <div class="pl-input-box" @click="focusInput">
           <span
             v-for="(chip, i) in filterChips"
             :key="`${chip.category}:${chip.value}:${i}`"
-            class="chip"
+            class="pl-chip"
           >
-            <span class="chip-cat">{{ chip.category }}:</span>
-            <span class="chip-val">{{ chip.value }}</span>
+            <span class="pl-chip-cat">{{ chip.category }}:</span>
+            <span class="pl-chip-val">{{ chip.value }}</span>
             <button
-              class="chip-remove"
+              class="pl-chip-remove"
               title="Remove filter"
               @mousedown.prevent="removeChip(i)"
             >
@@ -178,7 +157,7 @@ function handleBackspace(): void {
             ref="inputEl"
             v-model="searchText"
             type="text"
-            class="search-input"
+            class="pl-search-input"
             :placeholder="filterChips.length === 0 ? 'Country, Industry, Ticker...' : ''"
             @input="handleInput"
             @focus="handleFocus"
@@ -187,27 +166,27 @@ function handleBackspace(): void {
           />
           <button
             v-if="filterChips.length > 0"
-            class="clear-all"
+            class="pl-clear-all"
             title="Clear all filters"
             @mousedown.prevent="clearAll"
           >
             &times;
           </button>
         </div>
-        <div v-if="showDropdown && suggestions.length > 0" class="dropdown">
+        <div v-if="showDropdown && suggestions.length > 0" class="pl-dropdown shadow">
           <template
             v-for="[category, items] of groupedSuggestions"
             :key="category"
           >
-            <div class="dropdown-category">{{ category }}</div>
+            <div class="pl-dropdown-cat">{{ category }}</div>
             <button
               v-for="item in items"
               :key="`${item.category}:${item.value}`"
-              class="dropdown-item"
+              class="pl-dropdown-item"
               @mousedown.prevent="selectSuggestion(item)"
             >
-              <span class="dropdown-item-cat">{{ item.category }}:</span>
-              <span class="dropdown-item-val">{{ item.display }}</span>
+              <span class="pl-dropdown-item-cat">{{ item.category }}:</span>
+              <span class="pl-dropdown-item-val">{{ item.display }}</span>
             </button>
           </template>
         </div>
@@ -216,39 +195,44 @@ function handleBackspace(): void {
   </div>
 </template>
 
-<style scoped>
-.filter-panel {
+<style scoped lang="scss">
+.pl-filter-panel {
   flex-shrink: 0;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface);
+  border-bottom: 1px solid #d8dde2;
+  background: #fff;
 }
 
-.filter-toggle {
+.pl-filter-toggle {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 8px 14px;
+  padding: 10px 16px;
   font-size: 13px;
-  font-family: var(--font-sans);
+  font-family: 'Fira Sans', sans-serif;
   font-weight: 600;
-  color: var(--color-text);
+  color: #495057;
   background: none;
   border: none;
   cursor: pointer;
   text-align: left;
   transition: background 0.1s;
+
+  &:hover {
+    background: #eff2f6;
+  }
 }
 
-.filter-toggle:hover {
-  background: var(--color-surface-hover);
+.pl-filter-icon {
+  color: #495057;
+  font-size: 12px;
 }
 
-.filter-toggle-text {
+.pl-filter-label {
   flex-shrink: 0;
 }
 
-.filter-badge {
+.pl-filter-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -257,90 +241,94 @@ function handleBackspace(): void {
   padding: 0 5px;
   font-size: 10px;
   font-weight: 700;
-  color: white;
-  background: var(--color-primary);
+  color: #fff;
+  background: #1a85a1;
   border-radius: 99px;
 }
 
-.result-count {
+.pl-result-count {
   flex: 1;
   text-align: right;
   font-size: 11px;
   font-weight: 400;
-  color: var(--color-text-muted);
+  color: #bbc1c7;
 }
 
-.filter-chevron {
+.pl-filter-chevron {
   flex-shrink: 0;
-  transition: transform 0.2s;
+  font-size: 10px;
+  color: #bbc1c7;
 }
 
-.expanded .filter-chevron {
-  transform: rotate(180deg);
+.pl-filter-body {
+  padding: 0 16px 12px;
 }
 
-.filter-body {
-  padding: 0 14px 10px;
-}
-
-.search-wrapper {
+.pl-search-wrapper {
   position: relative;
 }
 
-.input-box {
+.pl-input-box {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   padding: 5px 8px;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  background: #f5f7fa;
+  border: 1px solid #d8dde2;
+  border-radius: 0.25rem;
   cursor: text;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &:focus-within {
+    border-color: #1a85a1;
+    box-shadow: 0 0 0 3px rgba(26, 133, 161, 0.15);
+  }
 }
 
-.input-box:focus-within {
-  border-color: var(--color-primary);
-}
-
-.search-input {
+.pl-search-input {
   flex: 1;
   min-width: 60px;
-  padding: 2px 0;
-  font-size: 12px;
-  font-family: var(--font-sans);
-  color: var(--color-text);
+  padding: 3px 0;
+  font-size: 13px;
+  font-family: 'Fira Sans', sans-serif;
+  color: #4b4b4b;
   background: transparent;
   border: none;
   outline: none;
+
+  &::placeholder {
+    color: #bbc1c7;
+  }
 }
 
-.chip {
+.pl-chip {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 1px 6px;
+  padding: 2px 8px;
   font-size: 11px;
-  color: var(--color-text);
-  background: var(--color-surface-hover);
-  border: 1px solid var(--color-border);
+  color: #1a85a1;
+  background: rgba(26, 133, 161, 0.08);
+  border: 1px solid rgba(26, 133, 161, 0.15);
   border-radius: 99px;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
-.chip-cat {
-  color: var(--color-text-muted);
+.pl-chip-cat {
+  color: #bbc1c7;
+  font-weight: 500;
 }
 
-.chip-val {
+.pl-chip-val {
   max-width: 80px;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 500;
 }
 
-.chip-remove {
+.pl-chip-remove {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -348,21 +336,21 @@ function handleBackspace(): void {
   height: 14px;
   font-size: 13px;
   line-height: 1;
-  color: var(--color-text-muted);
+  color: #bbc1c7;
   background: none;
   border: none;
   border-radius: 50%;
   cursor: pointer;
   flex-shrink: 0;
   transition: color 0.15s, background 0.15s;
+
+  &:hover {
+    color: #d9534f;
+    background: rgba(217, 83, 79, 0.1);
+  }
 }
 
-.chip-remove:hover {
-  color: var(--color-danger);
-  background: rgba(255, 107, 107, 0.15);
-}
-
-.clear-all {
+.pl-clear-all {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -372,70 +360,69 @@ function handleBackspace(): void {
   margin-left: auto;
   font-size: 14px;
   line-height: 1;
-  color: var(--color-text-muted);
+  color: #bbc1c7;
   background: none;
   border: none;
   border-radius: 50%;
   cursor: pointer;
   transition: color 0.15s, background 0.15s;
+
+  &:hover {
+    color: #d9534f;
+    background: rgba(217, 83, 79, 0.1);
+  }
 }
 
-.clear-all:hover {
-  color: var(--color-danger);
-  background: rgba(255, 107, 107, 0.15);
-}
-
-.dropdown {
+.pl-dropdown {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
   right: 0;
   max-height: 220px;
   overflow-y: auto;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  background: #fff;
+  border: 1px solid #d8dde2;
+  border-radius: 0.25rem;
   z-index: 200;
 }
 
-.dropdown-category {
-  padding: 5px 10px 2px;
+.pl-dropdown-cat {
+  padding: 6px 10px 2px;
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--color-text-muted);
+  color: #bbc1c7;
 }
 
-.dropdown-item {
+.pl-dropdown-item {
   display: flex;
   align-items: center;
   gap: 5px;
   width: 100%;
-  padding: 5px 10px;
+  padding: 6px 10px;
   font-size: 12px;
-  font-family: var(--font-sans);
-  color: var(--color-text);
+  font-family: 'Fira Sans', sans-serif;
+  color: #4b4b4b;
   background: none;
   border: none;
   cursor: pointer;
   text-align: left;
   transition: background 0.1s;
+
+  &:hover {
+    background: #eff2f6;
+  }
 }
 
-.dropdown-item:hover {
-  background: var(--color-surface-hover);
-}
-
-.dropdown-item-cat {
-  color: var(--color-text-muted);
+.pl-dropdown-item-cat {
+  color: #bbc1c7;
   font-size: 10px;
   flex-shrink: 0;
 }
 
-.dropdown-item-val {
-  color: var(--color-text);
+.pl-dropdown-item-val {
+  color: #4b4b4b;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
