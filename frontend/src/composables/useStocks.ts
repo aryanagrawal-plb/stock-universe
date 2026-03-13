@@ -11,15 +11,15 @@ function formatMarketCapValue(value: number): string {
 function getStockValueForCategory(stock: Stock, category: string): string {
   switch (category) {
     case "Country":
-      return stock.country;
+      return stock.country ?? "";
     case "Industry":
-      return stock.industry;
+      return stock.industry ?? "";
     case "Sub-Industry":
-      return stock.sub_industry;
+      return stock.sub_industry ?? "";
     case "Exchange":
-      return stock.exchange;
+      return stock.exchange ?? "";
     case "Currency":
-      return stock.currency;
+      return stock.currency ?? "";
     case "Ticker":
       return stock.code;
     case "Name":
@@ -61,10 +61,12 @@ export function useStocks() {
     try {
       const response = await fetch("/api/stocks");
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      stocks.value = await response.json();
+      const data = await response.json();
+      stocks.value = Array.isArray(data) ? data : [];
     } catch (err) {
       error.value =
         err instanceof Error ? err.message : "Failed to fetch stocks";
+      stocks.value = [];
     } finally {
       isLoading.value = false;
     }

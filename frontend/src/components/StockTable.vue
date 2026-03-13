@@ -5,6 +5,20 @@ import type { ColDef, GridReadyEvent, GridApi } from "ag-grid-community";
 import { icon as faIcon } from "@fortawesome/fontawesome-svg-core";
 import { faThumbtack } from "@fortawesome/free-solid-svg-icons";
 import type { Stock } from "../types/stock";
+import {
+  TAB_COLUMNS,
+  PINNED_COLUMNS,
+  DISPLAY_TO_FIELD,
+  TEXT_FILTER_COLUMNS,
+  SET_FILTER_COLUMNS,
+  NUMBER_FILTER_COLUMNS,
+  PERCENT_DECIMAL_COLUMNS,
+  PERCENT_DISPLAY_COLUMNS,
+  LARGE_NUMBER_COLUMNS,
+  RATIO_COLUMNS,
+  COLOR_FORMATTED_COLUMNS,
+  FLEX_COLUMNS,
+} from "../constants/tableColumns";
 
 const props = defineProps<{
   stocks: Stock[];
@@ -16,6 +30,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   "toggle-pin": [code: string];
 }>();
+
+const TAB_NAMES = Object.keys(TAB_COLUMNS) as string[];
+const activeTab = ref<string>("Overview");
 
 const PAGE_SIZES = [10, 50, 100] as const;
 const pageSize = ref<number>(50);
@@ -40,23 +57,6 @@ const unpinnedRows = computed(() =>
   props.stocks.filter((s) => !props.pinnedCodes.has(s.code))
 );
 
-function formatMarketCap(value: number | null): string {
-  if (value == null) return "\u2014";
-  if (value >= 1e6) return `$${(value / 1e6).toFixed(1)}T`;
-  if (value >= 1e3) return `$${(value / 1e3).toFixed(1)}B`;
-  return `$${value.toFixed(0)}M`;
-}
-
-function formatPct(value: number | null): string {
-  if (value == null) return "\u2014";
-  return `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)}%`;
-}
-
-function formatNum(value: number | null, decimals = 1): string {
-  if (value == null) return "\u2014";
-  return value.toFixed(decimals);
-}
-
 const ELLIPSIS_STYLE: Record<string, string> = {
   overflow: "hidden",
   textOverflow: "ellipsis",
@@ -69,117 +69,144 @@ const TICKER_STYLE: Record<string, string> = {
   fontFamily: "'Roboto Mono', monospace",
 };
 
-const columnDefs = computed<ColDef[]>(() => [
-  {
-    colId: "_pin",
-    headerName: "",
-    width: 40,
-    maxWidth: 40,
-    pinned: "left",
-    sortable: false,
-    resizable: false,
-    suppressMovable: true,
-    cellRenderer: (params: { data?: Stock }) => {
-      const code = params.data?.code;
-      const isPinned = code ? props.pinnedCodes.has(code) : false;
-      return `<span class="pin-toggle${isPinned ? " is-pinned" : ""}">${pinSvg}</span>`;
-    },
-    onCellClicked: (event: { data?: Stock }) => {
-      if (event.data?.code) emit("toggle-pin", event.data.code);
-    },
-  },
-  {
-    field: "code",
-    headerName: "Ticker",
-    width: 100,
-    pinned: "left",
-    cellStyle: TICKER_STYLE,
-    sort: "asc",
-  },
-  {
-    field: "name",
-    headerName: "Name",
-    flex: 2,
-    minWidth: 180,
-    tooltipField: "name",
-    cellStyle: ELLIPSIS_STYLE,
-  },
-  { field: "country", headerName: "Country", width: 100 },
-  {
-    field: "industry",
-    headerName: "Industry",
-    width: 170,
-    cellStyle: ELLIPSIS_STYLE,
-  },
-  { field: "currency", headerName: "Ccy", width: 65 },
-  {
-    field: "price",
-    headerName: "Price",
-    width: 100,
-    type: "rightAligned",
-    headerClass: "ag-right-aligned-header",
+const DASH = "\u2014";
+
+function formatPercentDecimal(value: number | null): string {
+  if (value == null) return DASH;
+  return `${value >= 0 ? "+" : ""}${(value * 100).toFixed(2)}%`;
+}
+
+function formatPercentDisplay(value: number | null): string {
+  if (value == null) return DASH;
+  return `${value.toFixed(2)}%`;
+}
+
+function formatLargeNumber(value: number | null): string {
+  if (value == null) return DASH;
+  return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatRatio(value: number | null): string {
+  if (value == null) return DASH;
+  return value.toFixed(2);
+}
+
+function formatText(value: string | number | null | undefined): string {
+  if (value == null || value === undefined) return DASH;
+  if (typeof value === "string") return value || DASH;
+  return String(value);
+}
+
+function buildColDef(displayName: string): ColDef {
+  const field = DISPLAY_TO_FIELD[displayName];
+  if (!field) return { field: displayName.toLowerCase().replace(/\s/g, "_"), headerName: displayName };
+
+  const isNumeric = NUMBER_FILTER_COLUMNS.has(displayName) || TEXT_FILTER_COLUMNS.has(displayName) === false && SET_FILTER_COLUMNS.has(displayName) === false;
+  const isPctDecimal = PERCENT_DECIMAL_COLUMNS.has(displayName);
+  const isPctDisplay = PERCENT_DISPLAY_COLUMNS.has(displayName);
+  const isLarge = LARGE_NUMBER_COLUMNS.has(displayName);
+  const isRatio = RATIO_COLUMNS.has(displayName);
+  const hasColor = COLOR_FORMATTED_COLUMNS.has(displayName);
+  const isFlex = FLEX_COLUMNS.has(displayName);
+
+  let valueFormatter: (params: { value: unknown }) => string;
+  if (isPctDecimal) {
+    valueFormatter = (p) => formatPercentDecimal(p.value as number | null);
+  } else if (isPctDisplay) {
+    valueFormatter = (p) => formatPercentDisplay(p.value as number | null);
+  } else if (isLarge) {
+    valueFormatter = (p) => formatLargeNumber(p.value as number | null);
+  } else if (isRatio) {
+    valueFormatter = (p) => formatRatio(p.value as number | null);
+  } else {
+    valueFormatter = (p) => formatText(p.value as string | number | null | undefined);
+  }
+
+  const colDef: ColDef = {
+    field,
+    headerName: displayName,
+    valueFormatter,
     cellClass: "text-monospace",
-    valueFormatter: (p) => (p.value != null ? p.value.toFixed(2) : "\u2014"),
-  },
-  {
-    field: "market_cap",
-    headerName: "Mkt Cap",
-    width: 110,
-    type: "rightAligned",
-    headerClass: "ag-right-aligned-header",
-    cellClass: "text-monospace",
-    valueFormatter: (p) => formatMarketCap(p.value),
-  },
-  {
-    field: "pe_ratio",
-    headerName: "P/E",
-    width: 80,
-    type: "rightAligned",
-    headerClass: "ag-right-aligned-header",
-    cellClass: "text-monospace",
-    valueFormatter: (p) => formatNum(p.value),
-  },
-  {
-    field: "pb_ratio",
-    headerName: "P/B",
-    width: 80,
-    type: "rightAligned",
-    headerClass: "ag-right-aligned-header",
-    cellClass: "text-monospace",
-    valueFormatter: (p) => formatNum(p.value),
-  },
-  {
-    field: "dividend_yield",
-    headerName: "Div Yld",
-    width: 90,
-    type: "rightAligned",
-    headerClass: "ag-right-aligned-header",
-    cellClass: "text-monospace",
-    valueFormatter: (p) => (p.value != null ? `${p.value.toFixed(2)}%` : "\u2014"),
-  },
-  {
-    field: "return_ytd",
-    headerName: "YTD %",
-    width: 95,
-    type: "rightAligned",
-    headerClass: "ag-right-aligned-header",
-    cellClass: "text-monospace",
-    valueFormatter: (p) => formatPct(p.value),
-    cellClassRules: {
+    tooltipField: field,
+  };
+
+  if (isNumeric && !SET_FILTER_COLUMNS.has(displayName)) {
+    colDef.type = "rightAligned";
+    colDef.headerClass = "ag-right-aligned-header";
+  }
+
+  if (isFlex) {
+    colDef.flex = 1;
+    colDef.minWidth = 100;
+  } else {
+    colDef.width = 100;
+    colDef.minWidth = 80;
+  }
+
+  if (TEXT_FILTER_COLUMNS.has(displayName) || SET_FILTER_COLUMNS.has(displayName)) {
+    colDef.filter = "agTextColumnFilter";
+  } else if (NUMBER_FILTER_COLUMNS.has(displayName)) {
+    colDef.filter = "agNumberColumnFilter";
+  }
+
+  if (hasColor) {
+    colDef.cellClassRules = {
       "text-success": (p) => (p.value ?? 0) > 0,
       "text-danger": (p) => (p.value ?? 0) < 0,
+    };
+  }
+
+  if (displayName === "Name") {
+    colDef.cellStyle = ELLIPSIS_STYLE;
+  }
+  if (displayName === "Code" || displayName === "Ticker") {
+    colDef.cellStyle = TICKER_STYLE;
+  }
+
+  return colDef;
+}
+
+const columnDefs = computed<ColDef[]>(() => {
+  const defs: ColDef[] = [
+    {
+      colId: "_pin",
+      headerName: "",
+      width: 40,
+      maxWidth: 40,
+      pinned: "left",
+      sortable: false,
+      resizable: false,
+      suppressMovable: true,
+      cellRenderer: (params: { data?: Stock }) => {
+        const code = params.data?.code;
+        const isPinned = code ? props.pinnedCodes.has(code) : false;
+        return `<span class="pin-toggle${isPinned ? " is-pinned" : ""}">${pinSvg}</span>`;
+      },
+      onCellClicked: (event: { data?: Stock }) => {
+        if (event.data?.code) emit("toggle-pin", event.data.code);
+      },
     },
-  },
-  {
-    field: "volatility_1y",
-    headerName: "Vol 1Y",
-    width: 90,
-    type: "rightAligned",
-    headerClass: "ag-right-aligned-header",
-    cellClass: "text-monospace",
-    valueFormatter: (p) => formatNum(p.value, 2),
-  },
-]);
+  ];
+
+  const tabCols = TAB_COLUMNS[activeTab.value] ?? [];
+  const seen = new Set<string>(PINNED_COLUMNS);
+
+  for (const displayName of PINNED_COLUMNS) {
+    defs.push({
+      ...buildColDef(displayName),
+      pinned: "left",
+      sort: displayName === "Code" ? "asc" : undefined,
+    });
+  }
+
+  for (const displayName of tabCols) {
+    if (seen.has(displayName)) continue;
+    seen.add(displayName);
+    defs.push(buildColDef(displayName));
+  }
+
+  return defs;
+});
 
 const defaultColDef: ColDef = {
   sortable: true,
@@ -191,6 +218,18 @@ const defaultColDef: ColDef = {
 <template>
   <div class="stock-table-container">
     <div v-if="error" class="pl-error-msg">{{ error }}</div>
+
+    <div class="pl-tab-bar">
+      <button
+        v-for="tab in TAB_NAMES"
+        :key="tab"
+        class="pl-tab-btn"
+        :class="{ active: activeTab === tab }"
+        @click="activeTab = tab"
+      >
+        {{ tab }}
+      </button>
+    </div>
 
     <div class="pl-page-size-bar">
       <span class="pl-bar-label">Show</span>
@@ -236,6 +275,37 @@ const defaultColDef: ColDef = {
   padding: 8px 16px;
   color: #d9534f;
   font-size: 13px;
+}
+
+.pl-tab-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #d8dde2;
+  flex-shrink: 0;
+}
+
+.pl-tab-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-family: 'Fira Sans', sans-serif;
+  color: #495057;
+  background: transparent;
+  border: 1px solid #d8dde2;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: #bbc1c7;
+  }
+
+  &.active {
+    color: #fff;
+    background: #1a85a1;
+    border-color: #1a85a1;
+  }
 }
 
 .pl-page-size-bar {

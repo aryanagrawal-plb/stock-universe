@@ -30,6 +30,11 @@ class Stock(BaseModel):
     # Identifiers
     ric: str | None = Field(None, alias="RIC")
     isin: str | None = Field(None, alias="ISIN")
+    sedol: str | None = Field(None, alias="SEDOL")
+    figi: str | None = Field(None, alias="FIGI")
+    datastream_code: str | None = Field(None, alias="Datastream Code")
+    barra_id: str | None = Field(None, alias="Barra ID")
+    barra_root_id: str | None = Field(None, alias="Barra Root ID")
 
     # Fundamentals
     price: float | None = Field(None, alias="Price")
@@ -40,18 +45,65 @@ class Stock(BaseModel):
     eps: float | None = Field(None, alias="Earnings_Per_Share")
     roe: float | None = Field(None, alias="Return_On_Equity")
     turnover: float | None = Field(None, alias="Turnover_By_Value")
+    price_return: float | None = Field(None, alias="Price_Return")
+    total_return: float | None = Field(None, alias="Total_Return")
+    unadjusted_price: float | None = Field(None, alias="Unadjusted_Price")
 
     # Returns
     return_1m: float | None = Field(None, alias="Return_1M")
     return_3m: float | None = Field(None, alias="Return_3M")
     return_6m: float | None = Field(None, alias="Return_6M")
     return_1y: float | None = Field(None, alias="Return_1Y")
+    return_3y: float | None = Field(None, alias="Return_3Y")
+    return_5y: float | None = Field(None, alias="Return_5Y")
+    return_10y: float | None = Field(None, alias="Return_10Y")
     return_ytd: float | None = Field(None, alias="Return_YTD")
 
-    # Risk
+    # Volatility
+    volatility_1m: float | None = Field(None, alias="Volatility_1M")
+    volatility_3m: float | None = Field(None, alias="Volatility_3M")
+    volatility_6m: float | None = Field(None, alias="Volatility_6M")
     volatility_1y: float | None = Field(None, alias="Volatility_1Y")
+    volatility_3y: float | None = Field(None, alias="Volatility_3Y")
+    volatility_5y: float | None = Field(None, alias="Volatility_5Y")
+    volatility_10y: float | None = Field(None, alias="Volatility_10Y")
+    volatility_ytd: float | None = Field(None, alias="Volatility_YTD")
+
+    # Sharpe
+    sharpe_1m: float | None = Field(None, alias="Sharpe_1M")
+    sharpe_3m: float | None = Field(None, alias="Sharpe_3M")
     sharpe_1y: float | None = Field(None, alias="Sharpe_1Y")
+    sharpe_3y: float | None = Field(None, alias="Sharpe_3Y")
+    sharpe_5y: float | None = Field(None, alias="Sharpe_5Y")
+    sharpe_10y: float | None = Field(None, alias="Sharpe_10Y")
+
+    # Sortino
+    sortino_1m: float | None = Field(None, alias="Sortino_1M")
+    sortino_3m: float | None = Field(None, alias="Sortino_3M")
+    sortino_1y: float | None = Field(None, alias="Sortino_1Y")
+    sortino_3y: float | None = Field(None, alias="Sortino_3Y")
+    sortino_5y: float | None = Field(None, alias="Sortino_5Y")
+    sortino_10y: float | None = Field(None, alias="Sortino_10Y")
+
+    # Max Drawdown
+    max_drawdown_1m: float | None = Field(None, alias="Max_Drawdown_1M")
+    max_drawdown_3m: float | None = Field(None, alias="Max_Drawdown_3M")
     max_drawdown_1y: float | None = Field(None, alias="Max_Drawdown_1Y")
+    max_drawdown_3y: float | None = Field(None, alias="Max_Drawdown_3Y")
+    max_drawdown_5y: float | None = Field(None, alias="Max_Drawdown_5Y")
+    max_drawdown_10y: float | None = Field(None, alias="Max_Drawdown_10Y")
+
+    # VaR
+    var_1m: float | None = Field(None, alias="VaR_1M")
+    var_3m: float | None = Field(None, alias="VaR_3M")
+    var_1y: float | None = Field(None, alias="VaR_1Y")
+    var_3y: float | None = Field(None, alias="VaR_3Y")
+    var_5y: float | None = Field(None, alias="VaR_5Y")
+    var_10y: float | None = Field(None, alias="VaR_10Y")
+
+    # Skewness / Kurtosis
+    skewness_1y: float | None = Field(None, alias="Skewness_1Y")
+    kurtosis_1y: float | None = Field(None, alias="Kurtosis_1Y")
 
     model_config = {"populate_by_name": True}
 

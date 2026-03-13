@@ -81,7 +81,11 @@ onUnmounted(() => {
 
 const validStocks = computed(() => {
   const withData = props.stocks.filter(
-    (s) => s.volatility_1y != null && s.return_1y != null
+    (s) =>
+      s.volatility_1y != null &&
+      s.return_1y != null &&
+      typeof s.volatility_1y === "number" &&
+      typeof s.return_1y === "number"
   );
   const vols = withData.map((s) => s.volatility_1y as number).sort(d3.ascending);
   const p95 = d3.quantile(vols, 0.95) ?? Infinity;
@@ -90,7 +94,7 @@ const validStocks = computed(() => {
 
 function stockOpacity(stock: Stock): number {
   if (tourFilterIndustry.value == null) return 0.85;
-  return stock.industry === tourFilterIndustry.value ? 0.85 : 0.04;
+  return (stock.industry ?? "") === tourFilterIndustry.value ? 0.85 : 0.04;
 }
 
 const xScale = computed(() =>
@@ -315,7 +319,7 @@ const tooltipY = computed(() => {
               :cx="xScale(stock.volatility_1y as number)"
               :cy="yScale(stock.return_1y as number)"
               :r="(hoveredStock?.stock.code === stock.code ? 5.3 : 3.3) / currentTransform.k"
-              :fill="colorFor(stock.industry)"
+              :fill="colorFor(stock.industry ?? '')"
               :fill-opacity="stockOpacity(stock)"
               stroke="none"
               class="data-point"
