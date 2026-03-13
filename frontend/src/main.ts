@@ -13,6 +13,9 @@ import {
   faChevronUp,
   faBars,
   faThumbtack,
+  faBell,
+  faTimes,
+  faArrowRight,
 } from "@fortawesome/free-solid-svg-icons";
 
 library.add(
@@ -24,6 +27,9 @@ library.add(
   faChevronUp,
   faBars,
   faThumbtack,
+  faBell,
+  faTimes,
+  faArrowRight,
 );
 
 import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";

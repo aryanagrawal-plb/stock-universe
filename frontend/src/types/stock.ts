@@ -146,3 +146,9 @@ export interface Alert {
   created_at: string;
   status: "active" | "paused";
 }
+
+export interface TriggeredAlert {
+  alert: Alert;
+  triggered_at: string;
+  match_count: number;
+}

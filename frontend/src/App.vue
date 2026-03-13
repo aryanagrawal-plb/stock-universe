@@ -108,6 +108,12 @@ function handleNavigate(view: string): void {
   currentView.value = view;
 }
 
+function handleApplyAlert(filters: UniverseFilters): void {
+  setAiFilters(filters);
+  currentView.value = "universe";
+  selectedUniverse.value = "Equities";
+}
+
 onMounted(() => {
   restoreFilters();
   fetchStocks();
@@ -123,7 +129,12 @@ onBeforeUnmount(() => {
   <SplashScreen v-if="showSplash" @done="showSplash = false" />
   <div class="pl-app">
     <ShortcutHelpOverlay v-model="showHelp" />
-    <TopBar :current-view="currentView" @navigate="handleNavigate" @command="handleCommandBarCommand" />
+    <TopBar
+      :current-view="currentView"
+      @navigate="handleNavigate"
+      @command="handleCommandBarCommand"
+      @apply-alert="handleApplyAlert"
+    />
     <div class="pl-main">
       <template v-if="currentView === 'universe'">
         <div class="pl-chart-chat-row">
