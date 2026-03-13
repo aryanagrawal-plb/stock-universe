@@ -1,0 +1,116 @@
+[
+  {
+    "_description": "User asks for US tech stocks with fundamental filters",
+    "request": {
+      "message": "Show me US technology stocks with PE ratio under 30 and dividend yield above 2%"
+    },
+    "response": {
+      "reply": "I understood the following filters from your request:\n\nCountry = United States, Industry = Technology, P/E Ratio <= 30, Dividend Yield >= 2.0\n\nWould you like me to apply these filters?",
+      "filters": {
+        "countries": ["United States"],
+        "industries": ["Technology"],
+        "pe_ratio": { "min": null, "max": 30.0 },
+        "dividend_yield": { "min": 2.0, "max": null }
+      }
+    }
+  },
+  {
+    "_description": "User asks for cheap Japanese energy stocks",
+    "request": {
+      "message": "I want cheap Japanese stocks in the energy sector"
+    },
+    "response": {
+      "reply": "I understood the following filters from your request:\n\nCountry = Japan, Industry = Energy, Price <= 20\n\nWould you like me to apply these filters?",
+      "filters": {
+        "countries": ["Japan"],
+        "industries": ["Energy"],
+        "price": { "min": null, "max": 20.0 }
+      }
+    }
+  },
+  {
+    "_description": "User searches by ticker symbol",
+    "request": {
+      "message": "AAPL"
+    },
+    "response": {
+      "reply": "I understood the following filters from your request:\n\nSearch contains 'AAPL'\n\nWould you like me to apply these filters?",
+      "filters": {
+        "search": "AAPL"
+      }
+    }
+  },
+  {
+    "_description": "User asks for large-cap stocks on NYSE with a return filter",
+    "request": {
+      "message": "Stocks on NYSE with market cap over 100 billion and positive YTD return"
+    },
+    "response": {
+      "reply": "I understood the following filters from your request:\n\nExchange = NYSE, Market Cap >= 100000, YTD Return >= 0\n\nWould you like me to apply these filters?",
+      "filters": {
+        "exchanges": ["NYSE"],
+        "market_cap": { "min": 100000.0, "max": null },
+        "return_ytd": { "min": 0.0, "max": null }
+      }
+    }
+  },
+  {
+    "_description": "User asks for high-dividend stocks from multiple countries",
+    "request": {
+      "message": "Give me high dividend stocks from Australia and Canada"
+    },
+    "response": {
+      "reply": "I understood the following filters from your request:\n\nCountry = Australia, Canada, Dividend Yield >= 3.0\n\nWould you like me to apply these filters?",
+      "filters": {
+        "countries": ["Australia", "Canada"],
+        "dividend_yield": { "min": 3.0, "max": null }
+      }
+    }
+  },
+  {
+    "_description": "User sends a message with no actionable filters",
+    "request": {
+      "message": "Hello, how are you?"
+    },
+    "response": {
+      "reply": "I couldn't detect any specific filters in your message. Try something like: \"Show me US tech stocks with PE under 25\".",
+      "filters": null
+    }
+  },
+  {
+    "_description": "Complex multi-filter query with risk metrics",
+    "request": {
+      "message": "Find European healthcare stocks with Sharpe ratio above 1.5, volatility below 0.3, and market cap over 50 billion"
+    },
+    "response": {
+      "reply": "I understood the following filters from your request:\n\nCountry = United Kingdom, France, Germany, Switzerland, Netherlands, Industry = Healthcare, Market Cap >= 50000, 1Y Volatility <= 0.3, 1Y Sharpe >= 1.5\n\nWould you like me to apply these filters?",
+      "filters": {
+        "countries": [
+          "United Kingdom",
+          "France",
+          "Germany",
+          "Switzerland",
+          "Netherlands",
+          "Spain",
+          "Italy",
+          "Sweden",
+          "Norway",
+          "Denmark",
+          "Finland",
+          "Belgium",
+          "Austria",
+          "Ireland",
+          "Portugal",
+          "Greece",
+          "Poland",
+          "Czech Republic",
+          "Hungary"
+        ],
+        "industries": ["Healthcare"],
+        "market_cap": { "min": 50000.0, "max": null },
+        "volatility_1y": { "min": null, "max": 0.3 },
+        "sharpe_1y": { "min": 1.5, "max": null }
+      }
+    }
+  }
+]
