@@ -73,6 +73,12 @@ const PERIOD_OPTIONS: PeriodOption[] = [
 ];
 
 const selectedPeriod = ref<PeriodOption>(PERIOD_OPTIONS[3]);
+const showPeriodDropdown = ref(false);
+
+function selectPeriod(opt: PeriodOption): void {
+  selectedPeriod.value = opt;
+  showPeriodDropdown.value = false;
+}
 
 const containerRef = ref<HTMLDivElement | null>(null);
 const svgRef = ref<SVGSVGElement | null>(null);
@@ -432,16 +438,26 @@ const tooltipY = computed(() => {
         </div>
       </div>
 
-      <div v-if="displayUniverse === 'Equities'" class="period-selector">
-        <button
-          v-for="p in PERIOD_OPTIONS"
-          :key="p.label"
-          class="period-btn"
-          :class="{ active: selectedPeriod.label === p.label }"
-          @click="selectedPeriod = p"
-        >
-          {{ p.label }}
-        </button>
+      <div
+        v-if="displayUniverse === 'Equities'"
+        class="period-selector-wrap"
+        @click.stop="showPeriodDropdown = !showPeriodDropdown"
+      >
+        <span class="period-label">
+          <span class="universe-selection">{{ selectedPeriod.label }}</span>
+          <span class="universe-chevron"></span>
+        </span>
+        <div v-show="showPeriodDropdown" class="universe-menu">
+          <button
+            v-for="p in PERIOD_OPTIONS"
+            :key="p.label"
+            class="universe-option"
+            :class="{ active: selectedPeriod.label === p.label }"
+            @click.stop="selectPeriod(p)"
+          >
+            {{ p.label }}
+          </button>
+        </div>
       </div>
 
       <div class="header-spacer"></div>
@@ -765,36 +781,15 @@ const tooltipY = computed(() => {
 }
 
 /* Period selector */
-.period-selector {
-  display: flex;
-  gap: 2px;
-  background: #f1f3f5;
-  border-radius: 5px;
-  padding: 2px;
-}
-
-.period-btn {
-  padding: 3px 9px;
-  font-size: 11px;
-  font-weight: 600;
-  font-family: 'Fira Sans', sans-serif;
-  color: #6c757d;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
+.period-selector-wrap {
+  position: relative;
   cursor: pointer;
-  transition: all 0.15s;
 }
 
-.period-btn:hover {
+.period-label {
+  font-size: 14px;
+  font-weight: 600;
   color: #495057;
-  background: #e9ecef;
-}
-
-.period-btn.active {
-  color: #fff;
-  background: #1a85a1;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
 }
 
 /* Tour controls — right aligned */
