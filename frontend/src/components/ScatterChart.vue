@@ -5,6 +5,11 @@ import type { Stock } from "../types/stock";
 
 const props = defineProps<{
   stocks: Stock[];
+  selectedUniverse?: string;
+}>();
+
+const emit = defineEmits<{
+  "update:universe": [value: string];
 }>();
 
 const INDUSTRY_COLORS: Record<string, string> = {
@@ -43,6 +48,21 @@ const isTourActive = ref(false);
 const currentTourIndustry = ref<string | null>(null);
 const tourFilterIndustry = ref<string | null>(null);
 
+const UNIVERSE_OPTIONS = [
+  "All",
+  "Equities",
+  "Commodity",
+  "Fixed Income",
+  "Foreign Exchange",
+  "Credit",
+  "Multi-Asset",
+] as const;
+const displayUniverse = computed(
+  () => (props.selectedUniverse as (typeof UNIVERSE_OPTIONS)[number]) ?? "Equities"
+);
+const isUniverseMenuOpen = ref(false);
+const universeDropdownRef = ref<HTMLDivElement | null>(null);
+
 let resizeObserver: ResizeObserver | null = null;
 let zoomBehavior: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null;
 let tourTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -77,7 +97,25 @@ onMounted(() => {
 onUnmounted(() => {
   resizeObserver?.disconnect();
   cancelTour();
+  document.removeEventListener("click", closeUniverseMenuOnClickOutside);
 });
+
+function toggleUniverseMenu(): void {
+  isUniverseMenuOpen.value = !isUniverseMenuOpen.value;
+  if (isUniverseMenuOpen.value) {
+    setTimeout(() => document.addEventListener("click", closeUniverseMenuOnClickOutside), 0);
+  } else {
+    document.removeEventListener("click", closeUniverseMenuOnClickOutside);
+  }
+}
+
+function closeUniverseMenuOnClickOutside(e: MouseEvent): void {
+  const el = e.target as Node;
+  if (!el || !universeDropdownRef.value?.contains(el)) {
+    isUniverseMenuOpen.value = false;
+    document.removeEventListener("click", closeUniverseMenuOnClickOutside);
+  }
+}
 
 const validStocks = computed(() => {
   const withData = props.stocks.filter(
@@ -249,6 +287,12 @@ function onPointLeave(): void {
   hoveredStock.value = null;
 }
 
+function selectUniverse(option: (typeof UNIVERSE_OPTIONS)[number]): void {
+  emit("update:universe", option);
+  isUniverseMenuOpen.value = false;
+  document.removeEventListener("click", closeUniverseMenuOnClickOutside);
+}
+
 function tooltipText(stock: Stock): string {
   const vol = ((stock.volatility_1y as number) * 100).toFixed(1);
   const ret = ((stock.return_1y as number) * 100).toFixed(1);
@@ -271,8 +315,29 @@ const tooltipY = computed(() => {
 <template>
   <div class="scatter-container">
     <div class="scatter-header">
-      <h3 class="scatter-title">My Universe</h3>
-      <div class="tour-controls">
+      <div
+        ref="universeDropdownRef"
+        class="universe-dropdown"
+        @click.stop="toggleUniverseMenu"
+      >
+        <h3 class="scatter-title">
+          My Universe
+          <span class="universe-selection">{{ displayUniverse }}</span>
+          <span class="universe-chevron">▼</span>
+        </h3>
+        <div v-show="isUniverseMenuOpen" class="universe-menu">
+          <button
+            v-for="opt in UNIVERSE_OPTIONS"
+            :key="opt"
+            class="universe-option"
+            :class="{ active: displayUniverse === opt }"
+            @click.stop="selectUniverse(opt)"
+          >
+            {{ opt }}
+          </button>
+        </div>
+      </div>
+      <div v-if="displayUniverse === 'Equities'" class="tour-controls">
         <button
           v-if="!isTourActive"
           class="tour-btn"
@@ -297,7 +362,7 @@ const tooltipY = computed(() => {
       </div>
     </div>
 
-    <div ref="containerRef" class="chart-wrap">
+    <div v-if="displayUniverse === 'Equities'" ref="containerRef" class="chart-wrap">
       <svg ref="svgRef" :width="width" :height="height">
         <defs>
           <clipPath id="scatter-clip">
@@ -396,6 +461,9 @@ const tooltipY = computed(() => {
         </g>
       </svg>
     </div>
+    <div v-else class="chart-wrap chart-placeholder">
+      <p class="chart-placeholder-text">Not implemented yet</p>
+    </div>
   </div>
 </template>
 
@@ -415,11 +483,68 @@ const tooltipY = computed(() => {
   margin-bottom: 8px;
 }
 
+.universe-dropdown {
+  position: relative;
+  cursor: pointer;
+}
+
 .scatter-title {
   font-family: 'Fira Sans', sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: #495057;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.universe-selection {
+  color: #1a85a1;
+  font-weight: 600;
+}
+
+.universe-chevron {
+  color: #1a85a1;
+  font-size: 10px;
+}
+
+.universe-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 160px;
+  padding: 6px 0;
+  background: #fff;
+  border: 1px solid #d8dde2;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+}
+
+.universe-option {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-family: 'Fira Sans', sans-serif;
+  color: #495057;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.universe-option:hover {
+  background: #f1f3f5;
+}
+
+.universe-option.active {
+  color: #1a85a1;
+  font-weight: 600;
+  background: rgba(26, 133, 161, 0.08);
 }
 
 .tour-controls {
@@ -458,6 +583,18 @@ const tooltipY = computed(() => {
   flex: 1;
   min-height: 350px;
   position: relative;
+}
+
+.chart-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-placeholder-text {
+  font-family: 'Fira Sans', sans-serif;
+  font-size: 14px;
+  color: #8b8fa3;
 }
 
 .data-point {
