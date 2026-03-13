@@ -11,7 +11,7 @@ const emit = defineEmits<{
   "clear-filters": [];
 }>();
 
-const { messages, isSending, sendMessage, confirmFilters, dismissFilters, clearMessages } =
+const { messages, isSending, sendMessage, confirmFilters, dismissFilters } =
   useChat((action: FilterAction, filters: UniverseFilters | null) => {
     if (action === "set" && filters) emit("set-filters", filters);
     else if (action === "add" && filters) emit("apply-filters", filters);
@@ -31,7 +31,8 @@ const lastPendingIndex = computed<number>(() => {
 
 const inputEmpty = computed(() => input.value.trim().length === 0);
 const hasPendingSuggestion = computed(() => lastPendingIndex.value !== -1);
-const showHighlight = computed(() => inputEmpty.value && hasPendingSuggestion.value);
+const highlightDismissed = ref(false);
+const showHighlight = computed(() => inputEmpty.value && hasPendingSuggestion.value && !highlightDismissed.value);
 
 async function handleSend(): Promise<void> {
   const text = input.value.trim();
@@ -49,6 +50,7 @@ function scrollToBottom(): void {
 }
 
 watch(() => messages.value.length, async () => {
+  highlightDismissed.value = false;
   await nextTick();
   scrollToBottom();
 });
@@ -73,9 +75,9 @@ function handleKeydown(e: KeyboardEvent): void {
     }
     return;
   }
-  if (e.key === "Escape" && inputEmpty.value && hasPendingSuggestion.value) {
+  if (e.key === "Escape" && hasPendingSuggestion.value) {
     e.preventDefault();
-    handleDismiss(lastPendingIndex.value);
+    highlightDismissed.value = true;
   }
 }
 
@@ -85,11 +87,6 @@ function handleConfirm(index: number): void {
 
 function handleDismiss(index: number): void {
   dismissFilters(index);
-}
-
-function handleClearChat(): void {
-  clearMessages();
-  emit("clear-filters");
 }
 
 function getFilterChips(msg: ChatMessage) {
@@ -115,34 +112,23 @@ function appliedBadgeLabel(msg: ChatMessage): string {
 </script>
 
 <template>
-  <div class="pl-chat-panel">
-    <div class="pl-chat-header">
-      <span class="pl-chat-badge">AI</span>
-      <span class="pl-chat-title">Assistant</span>
-      <button
-        v-if="messages.length > 0"
-        class="pl-chat-clear-btn"
-        title="Clear chat history"
-        @click="handleClearChat"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-        </svg>
-      </button>
-    </div>
-
+  <div class="pl-chat-panel" :class="{ 'has-pending': showHighlight }">
     <div ref="messagesEl" class="pl-chat-messages">
       <div v-if="messages.length === 0 && !isSending" class="pl-chat-empty">
         Ask the AI to filter stocks, e.g.<br />
         <em>"Show me US tech stocks under $50"</em>
       </div>
-      <div
+      <template
         v-for="(msg, i) in messages"
         :key="i"
-        class="pl-chat-msg"
-        :class="[msg.role, { 'pl-highlighted': showHighlight && i === lastPendingIndex }]"
       >
-        <span class="pl-chat-msg-role">{{ msg.role === "user" ? "You" : "AI" }}</span>
+        <div
+          class="pl-chat-msg"
+          :class="[msg.role, { 'pl-highlighted': showHighlight && i === lastPendingIndex }]"
+        >
+        <div v-if="showHighlight && i === lastPendingIndex" class="pl-highlight-hint">
+          Press Enter to apply these changes, or press Esc to do nothing
+        </div>
         <span class="pl-chat-msg-text">{{ msg.content }}</span>
 
         <div v-if="msg.filterStatus && msg.pendingFilters && getFilterChips(msg).length > 0" class="pl-pending-chips">
@@ -179,9 +165,9 @@ function appliedBadgeLabel(msg: ChatMessage): string {
         <div v-else-if="msg.filterStatus === 'dismissed'" class="pl-filter-badge pl-badge-dismissed">
           Dismissed
         </div>
-      </div>
+        </div>
+      </template>
       <div v-if="isSending" class="pl-chat-msg assistant">
-        <span class="pl-chat-msg-role">AI</span>
         <span class="pl-chat-msg-text pl-typing">Thinking...</span>
       </div>
     </div>
@@ -190,9 +176,11 @@ function appliedBadgeLabel(msg: ChatMessage): string {
       <input
         v-model="input"
         type="text"
-        :placeholder="hasPendingSuggestion ? 'Enter to apply · Esc to dismiss' : 'Ask about stocks...'"
+        :placeholder="'Ask about stocks...'"
         class="pl-chat-input"
         @keydown="handleKeydown"
+        @focus="highlightDismissed = false"
+        @blur="highlightDismissed = true"
       />
       <button
         class="pl-chat-send"
@@ -212,53 +200,6 @@ function appliedBadgeLabel(msg: ChatMessage): string {
   flex: 1;
   min-height: 0;
   background: #fff;
-}
-
-.pl-chat-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-bottom: 1px solid #d8dde2;
-  flex-shrink: 0;
-}
-
-.pl-chat-badge {
-  padding: 2px 8px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #fff;
-  background: #0c1743;
-  border-radius: 0.25rem;
-}
-
-.pl-chat-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #495057;
-  flex: 1;
-}
-
-.pl-chat-clear-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  border-radius: 0.25rem;
-  background: transparent;
-  color: #bbc1c7;
-  cursor: pointer;
-  transition: color 0.15s, background 0.15s;
-
-  &:hover {
-    color: #e74c3c;
-    background: rgba(231, 76, 60, 0.08);
-  }
 }
 
 .pl-chat-messages {
@@ -282,32 +223,51 @@ function appliedBadgeLabel(msg: ChatMessage): string {
 
 .pl-chat-msg {
   margin-bottom: 12px;
-  padding: 8px 10px;
-  border-radius: 0.25rem;
+  padding: 10px 14px;
+  border-radius: 0.75rem;
+  max-width: 85%;
+  color: #fff;
   transition: background 0.2s, box-shadow 0.2s;
 
+  &.user {
+    background: #1a85a1;
+    margin-left: auto;
+    border-bottom-right-radius: 0.15rem;
+  }
+
+  &.assistant {
+    background: #0c1743;
+    margin-right: auto;
+    border-bottom-left-radius: 0.15rem;
+  }
+
   &.pl-highlighted {
-    background: rgba(39, 174, 96, 0.06);
-    box-shadow: inset 0 0 0 1px rgba(39, 174, 96, 0.25);
+    position: relative;
+    border: 1px solid #1a85a1;
+    box-shadow: 0 0 0 3px rgba(26, 133, 161, 0.15);
   }
 }
 
-.pl-chat-msg-role {
-  display: block;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 3px;
-  color: #bbc1c7;
+.has-pending .pl-chat-msg:not(.pl-highlighted) {
+  opacity: 0.15;
 }
 
-.pl-chat-msg.user .pl-chat-msg-role {
-  color: #1a85a1;
+.pl-highlight-hint {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  font-size: 11px;
+  color: #495057;
+  text-align: center;
+  padding: 0 0 6px;
+  line-height: 1.4;
+  pointer-events: none;
 }
 
-.pl-chat-msg.assistant .pl-chat-msg-role {
-  color: #0c1743;
+.has-pending .pl-chat-input:focus {
+  border-color: #d8dde2;
+  box-shadow: none;
 }
 
 .pl-chat-msg-text {
@@ -315,12 +275,12 @@ function appliedBadgeLabel(msg: ChatMessage): string {
   line-height: 1.55;
   display: block;
   word-break: break-word;
-  color: #4b4b4b;
+  color: #fff;
   white-space: pre-line;
 }
 
 .pl-typing {
-  color: #bbc1c7;
+  color: rgba(255, 255, 255, 0.6);
   font-style: italic;
 }
 
@@ -337,11 +297,11 @@ function appliedBadgeLabel(msg: ChatMessage): string {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  color: #27ae60;
+  color: rgba(255, 255, 255, 0.7);
   margin-right: 2px;
 
   &.pl-remove {
-    color: #e67e22;
+    color: #f0a860;
   }
 }
 
@@ -352,22 +312,22 @@ function appliedBadgeLabel(msg: ChatMessage): string {
   padding: 2px 8px;
   font-size: 11px;
   font-weight: 500;
-  color: #1a85a1;
-  background: rgba(26, 133, 161, 0.08);
-  border: 1px solid rgba(26, 133, 161, 0.18);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 99px;
   white-space: nowrap;
 
   &.pl-chip-remove {
-    color: #e67e22;
-    background: rgba(230, 126, 34, 0.08);
-    border-color: rgba(230, 126, 34, 0.18);
+    color: #f0a860;
+    background: rgba(240, 168, 96, 0.15);
+    border-color: rgba(240, 168, 96, 0.25);
     text-decoration: line-through;
   }
 }
 
 .pl-preview-chip-cat {
-  color: #bbc1c7;
+  color: rgba(255, 255, 255, 0.6);
   font-weight: 500;
 }
 
@@ -431,13 +391,13 @@ function appliedBadgeLabel(msg: ChatMessage): string {
 }
 
 .pl-badge-applied {
-  color: #27ae60;
-  background: rgba(39, 174, 96, 0.1);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .pl-badge-dismissed {
-  color: #95a5a6;
-  background: rgba(149, 165, 166, 0.1);
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .pl-chat-input-row {
