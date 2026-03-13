@@ -414,8 +414,8 @@ const tooltipY = computed(() => {
         class="universe-dropdown"
         @click.stop="toggleUniverseMenu"
       >
-        <h3 class="scatter-title">
-          My Universe
+        <h3 class="scatter-title" >
+          <span style="margin-right: 1rem">My Universe</span>
           <span class="universe-selection">{{ displayUniverse }}</span>
           <span class="universe-chevron">&#9660;</span>
         </h3>
@@ -638,6 +638,7 @@ const tooltipY = computed(() => {
   font-weight: 600;
   color: #495057;
   flex-shrink: 0;
+  margin-bottom: 0;
 }
 
 .header-spacer {
