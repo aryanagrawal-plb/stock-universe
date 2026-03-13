@@ -1,6 +1,8 @@
 fastapi
 uvicorn[standard]
 pydantic>=2.0
+openai
+python-dotenv
 
 [dev]
 pytest
