@@ -67,7 +67,7 @@ export function useChat(onFilterAction?: OnFilterAction) {
       const action: FilterAction = data.action ?? "none";
       const filters: UniverseFilters | null = data.filters ?? null;
       const hasFilterChange =
-        action === "clear" || ((action === "add" || action === "remove") && filters !== null);
+        action === "clear" || ((action === "set" || action === "add" || action === "remove") && filters !== null);
 
       const msg: ChatMessage = {
         role: "assistant",

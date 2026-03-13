@@ -18,6 +18,7 @@ const {
   fetchStocks,
   pinnedCodes,
   togglePin,
+  setAiFilters,
   applyAiFilters,
   removeAiFilters,
   clearAiFilters,
@@ -36,6 +37,10 @@ const totalResultCount = computed(() => filteredStocks.value.length);
 function handleUpdateFilterChips(chips: FilterChip[]): void {
   clearAiFilters();
   filterChips.value = chips;
+}
+
+function handleSetFilters(filters: UniverseFilters): void {
+  setAiFilters(filters);
 }
 
 function handleAiFilters(filters: UniverseFilters): void {
@@ -72,6 +77,7 @@ onMounted(() => {
             @update:filter-chips="handleUpdateFilterChips"
           />
           <AiChat
+            @set-filters="handleSetFilters"
             @apply-filters="handleAiFilters"
             @remove-filters="handleRemoveFilters"
             @clear-filters="handleClearFilters"

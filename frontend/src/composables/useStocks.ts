@@ -64,18 +64,18 @@ const NUMERIC_FILTER_STOCK_MAP: Record<string, keyof Stock> = {
 };
 
 function passesAiFilters(stock: Stock, ai: UniverseFilters): boolean {
-  if (ai.countries?.length && !ai.countries.includes(stock.country))
+  if (ai.countries?.length && !ai.countries.includes(stock.country ?? ""))
     return false;
-  if (ai.industries?.length && !ai.industries.includes(stock.industry))
+  if (ai.industries?.length && !ai.industries.includes(stock.industry ?? ""))
     return false;
   if (
     ai.sub_industries?.length &&
-    !ai.sub_industries.includes(stock.sub_industry)
+    !ai.sub_industries.includes(stock.sub_industry ?? "")
   )
     return false;
-  if (ai.currencies?.length && !ai.currencies.includes(stock.currency))
+  if (ai.currencies?.length && !ai.currencies.includes(stock.currency ?? ""))
     return false;
-  if (ai.exchanges?.length && !ai.exchanges.includes(stock.exchange))
+  if (ai.exchanges?.length && !ai.exchanges.includes(stock.exchange ?? ""))
     return false;
 
   if (ai.search) {
@@ -285,6 +285,12 @@ export function useStocks() {
     }
   }
 
+  function setAiFilters(filters: UniverseFilters): void {
+    filterChips.value = [];
+    aiFilters.value = { ...filters };
+    _persistFilters();
+  }
+
   function applyAiFilters(filters: UniverseFilters): void {
     filterChips.value = [];
     aiFilters.value = mergeFilters(aiFilters.value, filters);
@@ -356,6 +362,7 @@ export function useStocks() {
     pinnedCodes,
     togglePin,
     pinnedStocks,
+    setAiFilters,
     applyAiFilters,
     removeAiFilters,
     clearAiFilters,

@@ -203,10 +203,9 @@ function handleBackspace(): void {
   max-height: 50%;
   display: flex;
   flex-direction: column;
-
-  &.expanded {
-    overflow: hidden;
-  }
+  overflow: visible;
+  position: relative;
+  z-index: 10;
 }
 
 .pl-filter-toggle {
@@ -269,7 +268,6 @@ function handleBackspace(): void {
 
 .pl-filter-body {
   padding: 0 16px 12px;
-  overflow-y: auto;
   min-height: 0;
 }
 
@@ -283,6 +281,8 @@ function handleBackspace(): void {
   align-items: center;
   gap: 4px;
   padding: 5px 8px;
+  max-height: 80px;
+  overflow-y: auto;
   background: #f5f7fa;
   border: 1px solid #d8dde2;
   border-radius: 0.25rem;

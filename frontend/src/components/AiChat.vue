@@ -5,6 +5,7 @@ import { aiFiltersToChips } from "../composables/useStocks";
 import type { UniverseFilters, FilterAction, ChatMessage } from "../types/stock";
 
 const emit = defineEmits<{
+  "set-filters": [filters: UniverseFilters];
   "apply-filters": [filters: UniverseFilters];
   "remove-filters": [filters: UniverseFilters];
   "clear-filters": [];
@@ -12,7 +13,8 @@ const emit = defineEmits<{
 
 const { messages, isSending, sendMessage, confirmFilters, dismissFilters, clearMessages } =
   useChat((action: FilterAction, filters: UniverseFilters | null) => {
-    if (action === "add" && filters) emit("apply-filters", filters);
+    if (action === "set" && filters) emit("set-filters", filters);
+    else if (action === "add" && filters) emit("apply-filters", filters);
     else if (action === "remove" && filters) emit("remove-filters", filters);
     else if (action === "clear") emit("clear-filters");
   });
@@ -96,6 +98,7 @@ function getFilterChips(msg: ChatMessage) {
 }
 
 function actionLabel(msg: ChatMessage): string {
+  if (msg.action === "set") return "Set";
   if (msg.action === "remove") return "Remove";
   if (msg.action === "clear") return "Clear all";
   return "Add";
