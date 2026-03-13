@@ -5,6 +5,7 @@ import type { Stock } from "../types/stock";
 
 const props = defineProps<{
   stocks: Stock[];
+  selectedUniverse?: string;
 }>();
 
 const emit = defineEmits<{
@@ -56,7 +57,9 @@ const UNIVERSE_OPTIONS = [
   "Credit",
   "Multi-Asset",
 ] as const;
-const selectedUniverse = ref<(typeof UNIVERSE_OPTIONS)[number]>("Equities");
+const displayUniverse = computed(
+  () => (props.selectedUniverse as (typeof UNIVERSE_OPTIONS)[number]) ?? "Equities"
+);
 const isUniverseMenuOpen = ref(false);
 const universeDropdownRef = ref<HTMLDivElement | null>(null);
 
@@ -285,7 +288,6 @@ function onPointLeave(): void {
 }
 
 function selectUniverse(option: (typeof UNIVERSE_OPTIONS)[number]): void {
-  selectedUniverse.value = option;
   emit("update:universe", option);
   isUniverseMenuOpen.value = false;
   document.removeEventListener("click", closeUniverseMenuOnClickOutside);
@@ -320,7 +322,7 @@ const tooltipY = computed(() => {
       >
         <h3 class="scatter-title">
           My Universe
-          <span class="universe-selection">{{ selectedUniverse }}</span>
+          <span class="universe-selection">{{ displayUniverse }}</span>
           <span class="universe-chevron">▼</span>
         </h3>
         <div v-show="isUniverseMenuOpen" class="universe-menu">
@@ -328,14 +330,14 @@ const tooltipY = computed(() => {
             v-for="opt in UNIVERSE_OPTIONS"
             :key="opt"
             class="universe-option"
-            :class="{ active: selectedUniverse === opt }"
+            :class="{ active: displayUniverse === opt }"
             @click.stop="selectUniverse(opt)"
           >
             {{ opt }}
           </button>
         </div>
       </div>
-      <div class="tour-controls">
+      <div v-if="displayUniverse === 'Equities'" class="tour-controls">
         <button
           v-if="!isTourActive"
           class="tour-btn"
@@ -360,7 +362,7 @@ const tooltipY = computed(() => {
       </div>
     </div>
 
-    <div ref="containerRef" class="chart-wrap">
+    <div v-if="displayUniverse === 'Equities'" ref="containerRef" class="chart-wrap">
       <svg ref="svgRef" :width="width" :height="height">
         <defs>
           <clipPath id="scatter-clip">
@@ -458,6 +460,9 @@ const tooltipY = computed(() => {
           </text>
         </g>
       </svg>
+    </div>
+    <div v-else class="chart-wrap chart-placeholder">
+      <p class="chart-placeholder-text">Not implemented yet</p>
     </div>
   </div>
 </template>
@@ -578,6 +583,18 @@ const tooltipY = computed(() => {
   flex: 1;
   min-height: 350px;
   position: relative;
+}
+
+.chart-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-placeholder-text {
+  font-family: 'Fira Sans', sans-serif;
+  font-size: 14px;
+  color: #8b8fa3;
 }
 
 .data-point {
