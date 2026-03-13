@@ -12,13 +12,17 @@ import logging
 import os
 from typing import Any
 
+from pathlib import Path
+
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from pydantic import ValidationError
 
 from models.schemas import NumericRange, UniverseFilters
 
-load_dotenv()
+# Load .env from backend directory (works regardless of cwd when uvicorn starts)
+_load_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(_load_path)
 
 logger = logging.getLogger(__name__)
 
