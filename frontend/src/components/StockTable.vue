@@ -36,7 +36,7 @@ const TAB_NAMES = Object.keys(TAB_COLUMNS) as string[];
 const activeTab = ref<string>("Overview");
 
 const ALL_COLUMN_NAMES = Object.keys(DISPLAY_TO_FIELD).filter(
-  (n) => !["Code", "Name", "Ticker"].includes(n)
+  (n) => !["Code", "Name", "Ticker"].includes(n),
 );
 
 const showColumnPicker = ref(false);
@@ -68,11 +68,11 @@ function onGridReady(params: GridReadyEvent): void {
 }
 
 const pinnedRows = computed(() =>
-  props.stocks.filter((s) => props.pinnedCodes.has(s.code))
+  props.stocks.filter((s) => props.pinnedCodes.has(s.code)),
 );
 
 const unpinnedRows = computed(() =>
-  props.stocks.filter((s) => !props.pinnedCodes.has(s.code))
+  props.stocks.filter((s) => !props.pinnedCodes.has(s.code)),
 );
 
 const ELLIPSIS_STYLE: Record<string, string> = {
@@ -101,7 +101,10 @@ function formatPercentDisplay(value: number | null): string {
 
 function formatLargeNumber(value: number | null): string {
   if (value == null) return DASH;
-  return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function formatRatio(value: number | null): string {
@@ -109,17 +112,34 @@ function formatRatio(value: number | null): string {
   return value.toFixed(2);
 }
 
+function stripSurroundingQuotes(s: string): string {
+  const trimmed = s.trim();
+  if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
 function formatText(value: string | number | null | undefined): string {
   if (value == null || value === undefined) return DASH;
-  if (typeof value === "string") return value || DASH;
+  if (typeof value === "string") {
+    const stripped = stripSurroundingQuotes(value);
+    if (stripped === "") return DASH;
+    return stripped;
+  }
   return String(value);
 }
 
 function buildColDef(displayName: string): ColDef {
   const field = DISPLAY_TO_FIELD[displayName];
-  if (!field) return { field: displayName.toLowerCase().replace(/\s/g, "_"), headerName: displayName };
+  if (!field)
+    return {
+      field: displayName.toLowerCase().replace(/\s/g, "_"),
+      headerName: displayName,
+    };
 
-  const isText = TEXT_FILTER_COLUMNS.has(displayName) || SET_FILTER_COLUMNS.has(displayName);
+  const isText =
+    TEXT_FILTER_COLUMNS.has(displayName) || SET_FILTER_COLUMNS.has(displayName);
   const isPctDecimal = PERCENT_DECIMAL_COLUMNS.has(displayName);
   const isPctDisplay = PERCENT_DISPLAY_COLUMNS.has(displayName);
   const isLarge = LARGE_NUMBER_COLUMNS.has(displayName);
@@ -137,7 +157,8 @@ function buildColDef(displayName: string): ColDef {
   } else if (isRatio) {
     valueFormatter = (p) => formatRatio(p.value as number | null);
   } else {
-    valueFormatter = (p) => formatText(p.value as string | number | null | undefined);
+    valueFormatter = (p) =>
+      formatText(p.value as string | number | null | undefined);
   }
 
   const colDef: ColDef = {
@@ -148,10 +169,7 @@ function buildColDef(displayName: string): ColDef {
     tooltipField: field,
   };
 
-  if (!isText) {
-    colDef.cellStyle = { textAlign: "right" };
-    colDef.headerClass = "ag-right-aligned-header";
-  }
+  colDef.cellStyle = { textAlign: "left" };
 
   if (isFlex) {
     colDef.flex = 1;
@@ -161,7 +179,10 @@ function buildColDef(displayName: string): ColDef {
     colDef.minWidth = 120;
   }
 
-  if (TEXT_FILTER_COLUMNS.has(displayName) || SET_FILTER_COLUMNS.has(displayName)) {
+  if (
+    TEXT_FILTER_COLUMNS.has(displayName) ||
+    SET_FILTER_COLUMNS.has(displayName)
+  ) {
     colDef.filter = "agTextColumnFilter";
   } else if (NUMBER_FILTER_COLUMNS.has(displayName)) {
     colDef.filter = "agNumberColumnFilter";
@@ -174,10 +195,9 @@ function buildColDef(displayName: string): ColDef {
   }
 
   if (displayName === "Name") {
-    colDef.cellStyle = ELLIPSIS_STYLE;
-  }
-  if (displayName === "Code" || displayName === "Ticker") {
-    colDef.cellStyle = TICKER_STYLE;
+    colDef.cellStyle = { ...ELLIPSIS_STYLE, textAlign: "left" };
+  } else if (displayName === "Code" || displayName === "Ticker") {
+    colDef.cellStyle = { ...TICKER_STYLE, textAlign: "left" };
   }
 
   return colDef;
@@ -248,8 +268,7 @@ const defaultColDef: ColDef = {
   suppressMovable: true,
 };
 
-const popupParent =
-  typeof document !== "undefined" ? document.body : undefined;
+const popupParent = typeof document !== "undefined" ? document.body : undefined;
 </script>
 
 <template>
@@ -273,12 +292,35 @@ const popupParent =
           title="Add/remove columns"
           @click="showColumnPicker = !showColumnPicker"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="3" y="3" width="7" height="7" />
+            <rect x="14" y="3" width="7" height="7" />
+            <rect x="3" y="14" width="7" height="7" />
+            <rect x="14" y="14" width="7" height="7" />
           </svg>
           <span>Columns</span>
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline :points="showColumnPicker ? '18 15 12 9 6 15' : '6 9 12 15 18 9'" />
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline
+              :points="showColumnPicker ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"
+            />
           </svg>
         </button>
         <div v-if="showColumnPicker" class="pl-col-picker-panel shadow">
@@ -304,6 +346,7 @@ const popupParent =
     <div class="grid-wrapper ag-theme-alpine">
       <AgGridVue
         style="width: 100%; height: 100%"
+        :rowHeight="40"
         :rowData="unpinnedRows"
         :pinnedTopRowData="pinnedRows"
         :columnDefs="columnDefs"
@@ -350,7 +393,7 @@ const popupParent =
 .pl-tab-btn {
   padding: 6px 14px;
   font-size: 13px;
-  font-family: 'Fira Sans', sans-serif;
+  font-family: "Fira Sans", sans-serif;
   color: #495057;
   background: transparent;
   border: 1px solid #d8dde2;
@@ -381,7 +424,7 @@ const popupParent =
   padding: 5px 12px;
   font-size: 12px;
   font-weight: 500;
-  font-family: 'Fira Sans', sans-serif;
+  font-family: "Fira Sans", sans-serif;
   color: #495057;
   background: transparent;
   border: 1px solid #d8dde2;
@@ -420,7 +463,7 @@ const popupParent =
   gap: 8px;
   padding: 5px 10px;
   font-size: 12px;
-  font-family: 'Fira Sans', sans-serif;
+  font-family: "Fira Sans", sans-serif;
   color: #495057;
   border-radius: 4px;
   cursor: pointer;
@@ -467,7 +510,7 @@ const popupParent =
 .pl-size-btn {
   padding: 4px 10px;
   font-size: 12px;
-  font-family: 'Fira Sans', sans-serif;
+  font-family: "Fira Sans", sans-serif;
   color: #495057;
   background: transparent;
   border: 1px solid #d8dde2;
