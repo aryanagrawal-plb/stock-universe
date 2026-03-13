@@ -122,18 +122,20 @@ function handleBackspace(): void {
 
 <template>
   <div class="pl-filter-panel" :class="{ expanded: isExpanded }">
-    <button class="pl-filter-toggle" @click="isExpanded = !isExpanded">
-      <icon icon="filter" class="pl-filter-icon" />
-      <span class="pl-filter-label">Filters</span>
-      <span v-if="filterChips.length > 0" class="pl-filter-badge">{{
-        filterChips.length
-      }}</span>
-      <span class="pl-result-count">{{ resultCount.toLocaleString() }} results</span>
-      <icon
-        :icon="isExpanded ? 'chevron-up' : 'chevron-down'"
-        class="pl-filter-chevron"
-      />
-    </button>
+    <div class="pl-filter-toggle-wrapper">
+      <button class="pl-filter-toggle" @click="isExpanded = !isExpanded">
+        <icon icon="filter" class="pl-filter-icon" />
+        <span class="pl-filter-label">Filters</span>
+        <span v-if="filterChips.length > 0" class="pl-filter-badge">{{
+          filterChips.length
+        }}</span>
+        <icon
+          :icon="isExpanded ? 'chevron-up' : 'chevron-down'"
+          class="pl-filter-chevron"
+        />
+      </button>
+      <span class="pl-result-popover">{{ resultCount.toLocaleString() }} results</span>
+    </div>
 
     <div v-if="isExpanded" class="pl-filter-body">
       <div class="pl-search-wrapper">
@@ -208,6 +210,36 @@ function handleBackspace(): void {
   z-index: 10;
 }
 
+.pl-filter-toggle-wrapper {
+  position: relative;
+
+  &:hover .pl-result-popover {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+.pl-result-popover {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 400;
+  color: #495057;
+  background: #fff;
+  border: 1px solid #d8dde2;
+  border-radius: 0.25rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, visibility 0.15s;
+  pointer-events: none;
+  z-index: 10;
+}
+
 .pl-filter-toggle {
   display: flex;
   align-items: center;
@@ -250,14 +282,6 @@ function handleBackspace(): void {
   color: #fff;
   background: #1a85a1;
   border-radius: 99px;
-}
-
-.pl-result-count {
-  flex: 1;
-  text-align: right;
-  font-size: 11px;
-  font-weight: 400;
-  color: #bbc1c7;
 }
 
 .pl-filter-chevron {
