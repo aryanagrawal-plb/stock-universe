@@ -7,6 +7,7 @@ import ScatterChart from "./components/ScatterChart.vue";
 import StockTable from "./components/StockTable.vue";
 import AlertManagement from "./components/AlertManagement.vue";
 import ShortcutHelpOverlay from "./components/ShortcutHelpOverlay.vue";
+import SplashScreen from "./components/SplashScreen.vue";
 import { useStocks, aiFiltersToChips } from "./composables/useStocks";
 import { getShortcutCommand, executeShortcutCommand } from "./composables/shortcuts";
 import type { UniverseFilters, FilterChip } from "./types/stock";
@@ -70,6 +71,7 @@ function handleGlobalKeydown(e: KeyboardEvent): void {
   e.preventDefault();
   runCommand(key);
 }
+const showSplash = ref(true);
 
 const displayChips = computed<FilterChip[]>(() => {
   const manual = filterChips.value;
@@ -118,6 +120,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <SplashScreen v-if="showSplash" @done="showSplash = false" />
   <div class="pl-app">
     <ShortcutHelpOverlay v-model="showHelp" />
     <TopBar :current-view="currentView" @navigate="handleNavigate" @command="handleCommandBarCommand" />
