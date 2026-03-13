@@ -61,7 +61,7 @@ function submitCommand(): void {
         </a>
       </nav>
 
-      <div class="pl-command-bar">
+      <!-- <div class="pl-command-bar">
         <input
           v-model="commandInput"
           type="text"
@@ -73,7 +73,7 @@ function submitCommand(): void {
           @keydown.enter="submitCommand"
         />
         <span class="pl-command-hint">2–3 letters + Enter</span>
-      </div>
+      </div> -->
 
       <div class="pl-navbar-right">
         <AlertBell
