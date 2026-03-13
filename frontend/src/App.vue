@@ -6,6 +6,7 @@ import AiChat from "./components/AiChat.vue";
 import ScatterChart from "./components/ScatterChart.vue";
 import StockTable from "./components/StockTable.vue";
 import AlertManagement from "./components/AlertManagement.vue";
+import SplashScreen from "./components/SplashScreen.vue";
 import { useStocks, aiFiltersToChips } from "./composables/useStocks";
 import type { UniverseFilters, FilterChip } from "./types/stock";
 
@@ -28,6 +29,8 @@ const {
   clearAllFilters,
   restoreFilters,
 } = useStocks();
+
+const showSplash = ref(true);
 
 const displayChips = computed<FilterChip[]>(() => {
   const manual = filterChips.value;
@@ -71,6 +74,7 @@ onMounted(() => {
 </script>
 
 <template>
+  <SplashScreen v-if="showSplash" @done="showSplash = false" />
   <div class="pl-app">
     <TopBar :current-view="currentView" @navigate="handleNavigate" />
     <div class="pl-main">
