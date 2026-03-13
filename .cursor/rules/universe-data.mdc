@@ -1,0 +1,39 @@
+---
+description: Universe master data schema and filter dimensions
+globs: data/**,backend/models/schemas.py,backend/services/agent.py
+alwaysApply: false
+---
+
+# Universe Data Reference
+
+## Source File
+
+`data/universe_master.json` — 7,623 stock records, each with ~100 fields.
+
+## Key Fields (JSON keys → Python aliases)
+
+### Categorical
+| JSON Key       | Python field     | Example values                          |
+|---------------|------------------|-----------------------------------------|
+| Country       | country          | United States, Japan, United Kingdom    |
+| Industry      | industry         | Technology, Healthcare, Energy          |
+| Sub-Industry  | sub_industry     | Software & IT Services, Banking         |
+| Currency      | currency         | USD, EUR, JPY, GBP                      |
+| Exchange      | exchange         | NYSE, Nasdaq, Tokyo SE, London SE       |
+
+### Fundamentals
+Price, Market_Cap, Pe_Ratio, Pb_Ratio, Dividend_Yield, Earnings_Per_Share, Return_On_Equity, Turnover_By_Value
+
+### Time-Series Metrics (suffixed with period)
+Periods: `_1M`, `_3M`, `_6M`, `_1Y`, `_3Y`, `_5Y`, `_10Y`, `_MTD`, `_QTD`, `_YTD`
+
+Metric families: Return, Volatility, Sharpe, Sortino, Skewness, Kurtosis, Max_Drawdown, VaR
+
+## UniverseFilters Coverage
+
+The `UniverseFilters` Pydantic model currently covers a subset of the above. When adding new filter fields:
+1. Add to `UniverseFilters` in `backend/models/schemas.py`
+2. Add to the `SYSTEM_PROMPT` in `backend/services/agent.py`
+3. Add to `_LABEL_MAP` in `agent.py` for the human-readable summary
+4. Add to `_build_json_schema()` in `agent.py` (for documentation)
+5. Update `backend/docs/sample_chat_responses.json` with an example
