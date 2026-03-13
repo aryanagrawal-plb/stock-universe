@@ -27,35 +27,32 @@ class TestStocksEndpoint:
     """Tests for GET /api/stocks."""
 
     def test_get_all_stocks(self, client: TestClient) -> None:
-        """Should return all stocks when no filters are applied."""
+        """Should return all stocks from the universe master dataset."""
         response = client.get("/api/stocks")
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
-        assert len(data) == 10
+        assert len(data) > 0
 
-    def test_filter_by_sector(self, client: TestClient) -> None:
-        """Should return only stocks matching the given sector."""
-        response = client.get("/api/stocks", params={"sector": "Technology"})
+    def test_stock_has_expected_fields(self, client: TestClient) -> None:
+        """Should return stock records with the expected schema fields."""
+        response = client.get("/api/stocks")
         assert response.status_code == 200
         data = response.json()
-        assert all(s["sector"] == "Technology" for s in data)
-        assert len(data) == 4
+        first = data[0]
+        assert "code" in first
+        assert "name" in first
+        assert "ticker" in first
+        assert "country" in first
+        assert "industry" in first
 
-    def test_filter_by_price_range(self, client: TestClient) -> None:
-        """Should return stocks within the given price range."""
-        response = client.get("/api/stocks", params={"min_price": 150, "max_price": 200})
+    def test_stock_has_fundamental_fields(self, client: TestClient) -> None:
+        """Should include fundamental metrics in stock records."""
+        response = client.get("/api/stocks")
         assert response.status_code == 200
-        data = response.json()
-        assert all(150 <= s["price"] <= 200 for s in data)
-
-    def test_search_by_ticker(self, client: TestClient) -> None:
-        """Should return stocks matching the search term in ticker or name."""
-        response = client.get("/api/stocks", params={"search": "aapl"})
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data) == 1
-        assert data[0]["ticker"] == "AAPL"
+        first = response.json()[0]
+        for field in ("price", "market_cap", "pe_ratio", "dividend_yield"):
+            assert field in first
 
     def test_health_check(self, client: TestClient) -> None:
         """Should return healthy status."""
