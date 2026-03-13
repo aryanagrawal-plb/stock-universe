@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import logoUrl from '@/assets/new-premialab-logo.svg';
+
 const navItems = [
   { label: "MY UNIVERSE", active: true },
   { label: "DATA", active: false },
@@ -14,7 +16,7 @@ const navItems = [
   <header class="pl-navbar">
     <div class="pl-navbar-inner">
       <div class="pl-navbar-brand">
-        <img src="/premialab-logo.png" alt="PremiaLab" class="pl-navbar-logo" />
+        <img :src="logoUrl" alt="PremiaLab" class="pl-navbar-logo" />
       </div>
 
       <nav class="pl-navbar-nav">
@@ -97,8 +99,9 @@ const navItems = [
   }
 
   &.active {
-    color: #fff;
-    border-color: rgba(255, 255, 255, 0.35);
+    color: #0c1743;
+    background: #fff;
+    border-color: rgba(12, 23, 67, 0.2);
   }
 }
 
