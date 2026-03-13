@@ -5,35 +5,25 @@ function formatMarketCapValue(value: number): string {
   if (value >= 1e12) return `$${(value / 1e12).toFixed(1)}T`;
   if (value >= 1e9) return `$${(value / 1e9).toFixed(1)}B`;
   if (value >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
-  return `$${value}`;
-}
-
-function formatVolumeValue(value: number): string {
-  if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
-  if (value >= 1e3) return `${(value / 1e3).toFixed(1)}K`;
-  return String(value);
+  return `$${value.toFixed(0)}`;
 }
 
 function getStockValueForCategory(stock: Stock, category: string): string {
   switch (category) {
-    case "Sector":
-      return stock.sector;
+    case "Country":
+      return stock.country;
+    case "Industry":
+      return stock.industry;
+    case "Sub-Industry":
+      return stock.sub_industry;
+    case "Exchange":
+      return stock.exchange;
+    case "Currency":
+      return stock.currency;
     case "Ticker":
-      return stock.ticker;
+      return stock.code;
     case "Name":
       return stock.name;
-    case "Price":
-      return stock.price.toFixed(2);
-    case "Market Cap":
-      return formatMarketCapValue(stock.market_cap);
-    case "P/E":
-      return stock.pe_ratio?.toFixed(1) ?? "";
-    case "Div Yield":
-      return stock.dividend_yield != null
-        ? stock.dividend_yield.toFixed(2) + "%"
-        : "";
-    case "Volume":
-      return formatVolumeValue(stock.volume);
     default:
       return "";
   }
@@ -80,5 +70,13 @@ export function useStocks() {
     }
   }
 
-  return { stocks, filteredStocks, filterChips, isLoading, error, fetchStocks };
+  return {
+    stocks,
+    filteredStocks,
+    filterChips,
+    isLoading,
+    error,
+    fetchStocks,
+    formatMarketCapValue,
+  };
 }
