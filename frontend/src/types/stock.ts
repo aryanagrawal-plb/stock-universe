@@ -16,6 +16,11 @@ export interface StockFilters {
   search: string;
 }
 
+export interface FilterChip {
+  category: string;
+  value: string;
+}
+
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;

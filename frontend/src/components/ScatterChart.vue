@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed } from "vue";
 import { Scatter } from "vue-chartjs";
 import {
   Chart as ChartJS,
@@ -8,13 +8,13 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { useStocks } from "../composables/useStocks";
+import type { Stock } from "../types/stock";
 
 ChartJS.register(LinearScale, PointElement, Tooltip, Legend);
 
-const { stocks, fetchStocks } = useStocks();
-
-onMounted(() => fetchStocks());
+const props = defineProps<{
+  stocks: Stock[];
+}>();
 
 const sectorColors: Record<string, string> = {
   Technology: "#6c5ce7",
@@ -28,7 +28,7 @@ const sectorColors: Record<string, string> = {
 const chartData = computed(() => {
   const bySector = new Map<string, { x: number; y: number; label: string }[]>();
 
-  for (const s of stocks.value) {
+  for (const s of props.stocks) {
     const points = bySector.get(s.sector) ?? [];
     points.push({
       x: s.market_cap / 1e9,
@@ -59,8 +59,8 @@ const chartOptions = {
     },
     tooltip: {
       callbacks: {
-        label: (ctx: { raw: { label: string; x: number; y: number } }) => {
-          const { label, x, y } = ctx.raw;
+        label: (ctx: unknown) => {
+          const { label, x, y } = (ctx as { raw: { label: string; x: number; y: number } }).raw;
           return `${label}: Mkt Cap $${x.toFixed(0)}B, P/E ${y.toFixed(1)}`;
         },
       },

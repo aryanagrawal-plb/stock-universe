@@ -1,22 +1,44 @@
 <script setup lang="ts">
+import { onMounted } from "vue";
 import TopBar from "./components/TopBar.vue";
-import StockTable from "./components/StockTable.vue";
-import ScatterChart from "./components/ScatterChart.vue";
+import FilterBar from "./components/FilterBar.vue";
 import AiChat from "./components/AiChat.vue";
+import ScatterChart from "./components/ScatterChart.vue";
+import StockTable from "./components/StockTable.vue";
+import { useStocks } from "./composables/useStocks";
+
+const { stocks, filteredStocks, filterChips, isLoading, error, fetchStocks } =
+  useStocks();
+
+onMounted(() => fetchStocks());
 </script>
 
 <template>
   <div class="app">
     <TopBar />
-    <main class="content">
+    <div class="chart-chat-row">
       <section class="chart-section">
-        <ScatterChart />
+        <ScatterChart :stocks="filteredStocks" />
       </section>
+      <aside class="chat-section">
+        <FilterBar
+          :stocks="stocks"
+          :filter-chips="filterChips"
+          :result-count="filteredStocks.length"
+          @update:filter-chips="filterChips = $event"
+        />
+        <AiChat />
+      </aside>
+    </div>
+    <main class="content">
       <section class="table-section">
-        <StockTable />
+        <StockTable
+          :stocks="filteredStocks"
+          :is-loading="isLoading"
+          :error="error"
+        />
       </section>
     </main>
-    <AiChat />
   </div>
 </template>
 
@@ -64,9 +86,24 @@ body {
   overflow-y: auto;
 }
 
-.chart-section {
+.chart-chat-row {
+  display: flex;
   height: 420px;
   border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.chart-section {
+  flex: 7;
+  min-width: 0;
+  border-right: 1px solid var(--color-border);
+}
+
+.chat-section {
+  flex: 3;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .table-section {
