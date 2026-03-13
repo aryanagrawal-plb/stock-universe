@@ -7,6 +7,10 @@ const props = defineProps<{
   stocks: Stock[];
 }>();
 
+const emit = defineEmits<{
+  "update:universe": [value: string];
+}>();
+
 const INDUSTRY_COLORS: Record<string, string> = {
   "Technology": "#6c5ce7",
   "Financials": "#00cec9",
@@ -42,6 +46,18 @@ const currentTransform = ref<d3.ZoomTransform>(d3.zoomIdentity);
 const isTourActive = ref(false);
 const currentTourIndustry = ref<string | null>(null);
 const tourFilterIndustry = ref<string | null>(null);
+
+const UNIVERSE_OPTIONS = [
+  "All",
+  "Equities",
+  "Commodity",
+  "Fixed Income",
+  "Foreign Exchange",
+  "Credit",
+  "Others",
+] as const;
+const selectedUniverse = ref<(typeof UNIVERSE_OPTIONS)[number]>("Equities");
+const isUniverseMenuOpen = ref(false);
 
 let resizeObserver: ResizeObserver | null = null;
 let zoomBehavior: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null;
@@ -249,6 +265,12 @@ function onPointLeave(): void {
   hoveredStock.value = null;
 }
 
+function selectUniverse(option: (typeof UNIVERSE_OPTIONS)[number]): void {
+  selectedUniverse.value = option;
+  emit("update:universe", option);
+  isUniverseMenuOpen.value = false;
+}
+
 function tooltipText(stock: Stock): string {
   const vol = ((stock.volatility_1y as number) * 100).toFixed(1);
   const ret = ((stock.return_1y as number) * 100).toFixed(1);
@@ -271,7 +293,28 @@ const tooltipY = computed(() => {
 <template>
   <div class="scatter-container">
     <div class="scatter-header">
-      <h3 class="scatter-title">My Universe</h3>
+      <div
+        class="universe-dropdown"
+        @mouseenter="isUniverseMenuOpen = true"
+        @mouseleave="isUniverseMenuOpen = false"
+      >
+        <h3 class="scatter-title">
+          My Universe
+          <span class="universe-selection">{{ selectedUniverse }}</span>
+          <span class="universe-chevron">▼</span>
+        </h3>
+        <div v-show="isUniverseMenuOpen" class="universe-menu">
+          <button
+            v-for="opt in UNIVERSE_OPTIONS"
+            :key="opt"
+            class="universe-option"
+            :class="{ active: selectedUniverse === opt }"
+            @click="selectUniverse(opt)"
+          >
+            {{ opt }}
+          </button>
+        </div>
+      </div>
       <div class="tour-controls">
         <button
           v-if="!isTourActive"
@@ -415,11 +458,67 @@ const tooltipY = computed(() => {
   margin-bottom: 8px;
 }
 
+.universe-dropdown {
+  position: relative;
+}
+
 .scatter-title {
   font-family: 'Fira Sans', sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: #495057;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.universe-selection {
+  color: #1a85a1;
+  font-weight: 600;
+}
+
+.universe-chevron {
+  color: #1a85a1;
+  font-size: 10px;
+}
+
+.universe-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 160px;
+  padding: 6px 0;
+  background: #fff;
+  border: 1px solid #d8dde2;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+}
+
+.universe-option {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-family: 'Fira Sans', sans-serif;
+  color: #495057;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.universe-option:hover {
+  background: #f1f3f5;
+}
+
+.universe-option.active {
+  color: #1a85a1;
+  font-weight: 600;
+  background: rgba(26, 133, 161, 0.08);
 }
 
 .tour-controls {
