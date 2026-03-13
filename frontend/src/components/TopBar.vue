@@ -1,86 +1,123 @@
 <script setup lang="ts">
-import logoUrl from "../assets/logo.svg";
+const navItems = [
+  { label: "MY UNIVERSE", active: true },
+  { label: "DATA", active: false },
+  { label: "ANALYTICS", active: false },
+  { label: "AI REPORT", active: false },
+  { label: "MY LAB", active: false },
+  { label: "INSIGHTS", active: false },
+  { label: "RESOURCES", active: false },
+];
 </script>
 
 <template>
-  <header class="topbar">
-    <div class="topbar-left">
-      <img :src="logoUrl" alt="Stock Universe" class="topbar-logo" />
-      <span class="topbar-title">Stock Universe</span>
-    </div>
-    <div class="topbar-right">
-      <button class="topbar-btn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
-          <line x1="3" y1="6" x2="21" y2="6"/>
-          <path d="M16 10a4 4 0 01-8 0"/>
-        </svg>
-        My Basket
-      </button>
-      <button class="topbar-btn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
-          <circle cx="12" cy="7" r="4"/>
-        </svg>
-        My Account
-      </button>
+  <header class="pl-navbar">
+    <div class="pl-navbar-inner">
+      <div class="pl-navbar-brand">
+        <img src="/premialab-logo.png" alt="PremiaLab" class="pl-navbar-logo" />
+      </div>
+
+      <nav class="pl-navbar-nav">
+        <a
+          v-for="item in navItems"
+          :key="item.label"
+          href="#"
+          class="pl-nav-item"
+          :class="{ active: item.active }"
+          @click.prevent
+        >
+          {{ item.label }}
+        </a>
+      </nav>
+
+      <div class="pl-navbar-right">
+        <button class="squared-center-fa-btn" title="Help">
+          <icon icon="circle-question" />
+        </button>
+        <button class="squared-center-fa-btn pl-user-btn" title="Account">
+          <icon icon="user" />
+          <icon icon="chevron-down" class="pl-caret" />
+        </button>
+      </div>
     </div>
   </header>
 </template>
 
-<style scoped>
-.topbar {
+<style scoped lang="scss">
+.pl-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1030;
+  height: 75px;
+  background: #0c1743;
+}
+
+.pl-navbar-inner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  height: 48px;
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
+  height: 100%;
+  padding: 0 24px;
+  gap: 16px;
+}
+
+.pl-navbar-brand {
+  flex-shrink: 0;
+  margin-right: auto;
+}
+
+.pl-navbar-logo {
+  height: 36px;
+  width: auto;
+}
+
+.pl-navbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pl-nav-item {
+  padding: 6px 14px;
+  font-family: 'Work Sans', sans-serif;
+  font-weight: 300;
+  font-size: 0.789875rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+
+  &:hover {
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  &.active {
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.35);
+  }
+}
+
+.pl-navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
 }
 
-.topbar-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.pl-user-btn {
+  width: auto;
+  padding: 0 10px;
+  border-radius: 17px;
+  gap: 5px;
 }
 
-.topbar-logo {
-  width: 28px;
-  height: 28px;
-}
-
-.topbar-title {
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.3px;
-}
-
-.topbar-right {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.topbar-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  font-size: 13px;
-  font-family: var(--font-sans);
-  color: var(--color-text-muted);
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.topbar-btn:hover {
-  color: var(--color-text);
-  background: var(--color-surface-hover);
-  border-color: var(--color-text-muted);
+.pl-caret {
+  font-size: 0.6em;
+  opacity: 0.6;
 }
 </style>

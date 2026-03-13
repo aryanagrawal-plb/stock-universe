@@ -1,0 +1,80 @@
+// PremiaLab Design System -- Color Palette
+$primary:    #0c1743;
+$info:       #1a85a1;
+$body-gray:  #4b4b4b;
+$success:    #5cb85c;
+$danger:     #d9534f;
+$warning:    #f0ad4e;
+
+$gray-100: #f5f7fa;
+$gray-200: #eff2f6;
+$gray-300: #e8ebf0;
+$gray-400: #e0e3e9;
+$gray-500: #d8dde2;
+$gray-600: #bbc1c7;
+$gray-700: #495057;
+$gray-800: #343a40;
+$gray-900: #212529;
+$white:    #fff;
+
+$info-lightest: rgba($info, 0.06);
+$table-accent-bg: #f7f8fa;
+
+// Typography
+$font-family-base:      'Fira Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+$font-family-monospace:  'Roboto Mono', 'Roboto', monospace;
+$font-family-nav:        'Work Sans', sans-serif;
+
+$font-size-base: 0.875rem;   // 14px
+$font-size-nav:  0.789875rem; // ~12.6px
+
+$font-sizes: (
+  'xs':      0.625rem,   // 10px
+  'sm':      0.75rem,    // 12px
+  'base':    0.875rem,   // 14px
+  'big':     1rem,       // 16px
+  'bigger':  1.125rem,   // 18px
+  'biggest': 1.3125rem   // 21px
+);
+
+// Spacing (Bootstrap 4 extended scale)
+$spacer: 1rem;
+$spacers: (
+  0:  0,
+  1:  $spacer * 0.25,
+  2:  $spacer * 0.5,
+  3:  $spacer,
+  4:  $spacer * 1.5,
+  5:  $spacer * 3,
+  6:  $spacer * 3.5,
+  7:  $spacer * 4,
+  8:  $spacer * 4.5,
+  9:  $spacer * 5,
+  10: $spacer * 5.5,
+  11: $spacer * 6,
+  12: $spacer * 6.5,
+  13: $spacer * 7
+);
+
+// Borders / Radius
+$border-radius:       0.25rem;
+$border-radius-sm:    0.2rem;
+$border-radius-lg:    0.3rem;
+$table-border-width:  1px;
+$table-border-color:  $gray-500;
+
+// Breakpoints (Bootstrap override)
+$grid-breakpoints: (
+  xs: 0,
+  sm: 576px,
+  md: 768px,
+  lg: 992px,
+  xl: 1260px,
+  xxl: 1600px
+);
+
+// Layout constants
+$navbar-height:           75px;
+$sidebar-app-width:       70px;
+$sidebar-admin-width:     320px;
+$sidebar-collapsed-width: 24px;
