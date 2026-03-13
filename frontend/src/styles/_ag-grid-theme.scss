@@ -17,7 +17,7 @@
   --ag-cell-horizontal-padding:        12px;
   --ag-row-border-color:               #{$gray-500};
   --ag-header-height:                  42px;
-  --ag-row-height:                     50px;
+  --ag-row-height:                     58px;
 
   .ag-root-wrapper,
   .ag-header,
@@ -61,6 +61,15 @@
 
   .ag-floating-top .ag-row {
     background: rgba(26, 133, 161, 0.06) !important;
+  }
+
+  // Master-detail: ensure detail panel content is visible
+  .ag-details-row {
+    overflow: visible;
+  }
+
+  .ag-details-row .ag-details-row-full-width {
+    overflow: visible;
   }
 }
 
