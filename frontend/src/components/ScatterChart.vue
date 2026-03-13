@@ -54,10 +54,11 @@ const UNIVERSE_OPTIONS = [
   "Fixed Income",
   "Foreign Exchange",
   "Credit",
-  "Others",
+  "Multi-Asset",
 ] as const;
 const selectedUniverse = ref<(typeof UNIVERSE_OPTIONS)[number]>("Equities");
 const isUniverseMenuOpen = ref(false);
+const universeDropdownRef = ref<HTMLDivElement | null>(null);
 
 let resizeObserver: ResizeObserver | null = null;
 let zoomBehavior: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null;
@@ -93,7 +94,25 @@ onMounted(() => {
 onUnmounted(() => {
   resizeObserver?.disconnect();
   cancelTour();
+  document.removeEventListener("click", closeUniverseMenuOnClickOutside);
 });
+
+function toggleUniverseMenu(): void {
+  isUniverseMenuOpen.value = !isUniverseMenuOpen.value;
+  if (isUniverseMenuOpen.value) {
+    setTimeout(() => document.addEventListener("click", closeUniverseMenuOnClickOutside), 0);
+  } else {
+    document.removeEventListener("click", closeUniverseMenuOnClickOutside);
+  }
+}
+
+function closeUniverseMenuOnClickOutside(e: MouseEvent): void {
+  const el = e.target as Node;
+  if (!el || !universeDropdownRef.value?.contains(el)) {
+    isUniverseMenuOpen.value = false;
+    document.removeEventListener("click", closeUniverseMenuOnClickOutside);
+  }
+}
 
 const validStocks = computed(() => {
   const withData = props.stocks.filter(
@@ -269,6 +288,7 @@ function selectUniverse(option: (typeof UNIVERSE_OPTIONS)[number]): void {
   selectedUniverse.value = option;
   emit("update:universe", option);
   isUniverseMenuOpen.value = false;
+  document.removeEventListener("click", closeUniverseMenuOnClickOutside);
 }
 
 function tooltipText(stock: Stock): string {
@@ -294,9 +314,9 @@ const tooltipY = computed(() => {
   <div class="scatter-container">
     <div class="scatter-header">
       <div
+        ref="universeDropdownRef"
         class="universe-dropdown"
-        @mouseenter="isUniverseMenuOpen = true"
-        @mouseleave="isUniverseMenuOpen = false"
+        @click.stop="toggleUniverseMenu"
       >
         <h3 class="scatter-title">
           My Universe
@@ -309,7 +329,7 @@ const tooltipY = computed(() => {
             :key="opt"
             class="universe-option"
             :class="{ active: selectedUniverse === opt }"
-            @click="selectUniverse(opt)"
+            @click.stop="selectUniverse(opt)"
           >
             {{ opt }}
           </button>
@@ -460,6 +480,7 @@ const tooltipY = computed(() => {
 
 .universe-dropdown {
   position: relative;
+  cursor: pointer;
 }
 
 .scatter-title {
