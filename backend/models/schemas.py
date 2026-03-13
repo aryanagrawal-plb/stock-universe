@@ -217,3 +217,26 @@ class ChatResponse(BaseModel):
     reply: str
     filters: UniverseFilters | None = None
     action: str = "none"
+    alert_name: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Alert / Watchlist models
+# ---------------------------------------------------------------------------
+
+
+class AlertCreate(BaseModel):
+    """Payload for creating a new alert."""
+
+    name: str
+    filters: UniverseFilters
+
+
+class Alert(BaseModel):
+    """A persisted alert/watchlist entry."""
+
+    id: str
+    name: str
+    filters: UniverseFilters
+    created_at: str
+    status: str = "active"

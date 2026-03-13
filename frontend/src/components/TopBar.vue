@@ -1,15 +1,31 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import logoUrl from '@/assets/new-premialab-logo.svg';
 
+const props = defineProps<{
+  currentView?: string;
+}>();
+
+const emit = defineEmits<{
+  (e: 'navigate', view: string): void;
+}>();
+
 const navItems = [
-  { label: "MY UNIVERSE", active: true },
-  { label: "DATA", active: false },
-  { label: "ANALYTICS", active: false },
-  { label: "AI REPORT", active: false },
-  { label: "MY LAB", active: false },
-  { label: "INSIGHTS", active: false },
-  { label: "RESOURCES", active: false },
+  { label: "MY UNIVERSE", view: "universe" },
+  { label: "ALERTS", view: "alerts" },
+  { label: "DATA", view: "data" },
+  { label: "ANALYTICS", view: "analytics" },
+  { label: "AI REPORT", view: "ai-report" },
+  { label: "MY LAB", view: "my-lab" },
+  { label: "INSIGHTS", view: "insights" },
+  { label: "RESOURCES", view: "resources" },
 ];
+
+const activeView = computed(() => props.currentView ?? 'universe');
+
+function handleNav(view: string): void {
+  emit('navigate', view);
+}
 </script>
 
 <template>
@@ -25,8 +41,8 @@ const navItems = [
           :key="item.label"
           href="#"
           class="pl-nav-item"
-          :class="{ active: item.active }"
-          @click.prevent
+          :class="{ active: activeView === item.view }"
+          @click.prevent="handleNav(item.view)"
         >
           {{ item.label }}
         </a>
