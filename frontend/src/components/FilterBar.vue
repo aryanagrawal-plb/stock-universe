@@ -200,6 +200,13 @@ function handleBackspace(): void {
   flex-shrink: 0;
   border-bottom: 1px solid #d8dde2;
   background: #fff;
+  max-height: 50%;
+  display: flex;
+  flex-direction: column;
+
+  &.expanded {
+    overflow: hidden;
+  }
 }
 
 .pl-filter-toggle {
@@ -262,6 +269,8 @@ function handleBackspace(): void {
 
 .pl-filter-body {
   padding: 0 16px 12px;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .pl-search-wrapper {

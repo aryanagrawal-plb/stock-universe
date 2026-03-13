@@ -1,7 +1,8 @@
 """AI agent service – converts natural-language queries into structured stock filters.
 
 Uses the DeepSeek API (OpenAI-compatible) with JSON-object mode to reliably
-extract a ``UniverseFilters`` object from free-form text.
+extract a ``UniverseFilters`` object from free-form text, supporting add,
+remove, and clear actions with full conversation history.
 """
 
 from __future__ import annotations
@@ -23,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 _client: AsyncOpenAI | None = None
 
+MAX_HISTORY_MESSAGES = 20
+
 
 def _get_client() -> AsyncOpenAI:
     """Lazily initialise the DeepSeek async client (OpenAI-compatible)."""
@@ -39,13 +42,36 @@ def _get_client() -> AsyncOpenAI:
 
 
 # ---------------------------------------------------------------------------
-# System prompt – tells the LLM what filters are available and how to use them
+# System prompt – tells the LLM what filters are available and how to respond
 # ---------------------------------------------------------------------------
 
 SYSTEM_PROMPT = """\
-You are a stock-universe filter assistant.  Your ONLY job is to read the
-user's natural-language request and produce a JSON object that conforms to
-the UniverseFilters schema.  Never add commentary – return ONLY valid JSON.
+You are a stock-universe filter assistant.  You read the user's
+natural-language request and produce a JSON object with exactly three keys:
+
+  {
+    "reply":   "<short conversational message to the user>",
+    "action":  "<one of: add, remove, clear, none>",
+    "filters": { ... UniverseFilters ... }
+  }
+
+### Action rules
+
+- **add**    – the user wants to ADD or SET filters.  Populate "filters".
+- **remove** – the user wants to REMOVE specific active filters.  Populate
+               "filters" with the fields to remove (e.g. to remove the
+               country filter, set "countries": ["United States"]).
+- **clear**  – the user wants to CLEAR ALL filters.  Set "filters" to {}.
+- **none**   – the user is asking a general question, chatting, or the
+               request doesn't map to any filter change.  Set "filters" to {}.
+
+### Reply guidelines
+
+- Keep replies short (1-3 sentences).
+- When action is "add", summarise what you're suggesting to add.
+- When action is "remove", summarise what you're suggesting to remove.
+- When action is "clear", confirm that all filters will be cleared.
+- When action is "none", answer the user's question helpfully.
 
 ### Available categorical values
 
@@ -119,45 +145,63 @@ if the user did not mention it.
 Set ``search`` to a substring if the user wants to find stocks by ticker
 symbol or company name (e.g. "Apple", "AAPL").
 
-### Rules
-- Only set fields the user explicitly or implicitly requested.
-- Leave every other field out of the JSON (do NOT set them to null).
-- "tech stocks" → industries: ["Technology"]
-- "cheap stocks" → price: {"max": 20}
-- "high dividend" → dividend_yield: {"min": 3}
-- "large cap" → market_cap: {"min": 10000}  (units are millions)
-- "small cap" → market_cap: {"max": 2000}
-- If the user's request doesn't map to any filter, return an empty JSON object {}.
+### Filter rules
+- Only set filter fields the user explicitly or implicitly requested.
+- Leave every other filter field out of the JSON (do NOT set them to null).
+- "tech stocks" → action: "add", industries: ["Technology"]
+- "cheap stocks" → action: "add", price: {"max": 20}
+- "high dividend" → action: "add", dividend_yield: {"min": 3}
+- "large cap" → action: "add", market_cap: {"min": 10000}
+- "small cap" → action: "add", market_cap: {"max": 2000}
+- "remove country filter" → action: "remove", countries: [<whatever was set>]
+- "clear all filters" → action: "clear"
+- "hello" / general question → action: "none"
 """
 
 
 # ---------------------------------------------------------------------------
-# Core parse function
+# Public entry point (used by the /chat router)
 # ---------------------------------------------------------------------------
 
 
-async def parse_filters_from_nl(message: str) -> UniverseFilters:
-    """Parse a natural-language message into a ``UniverseFilters`` object.
+async def process_message(
+    messages: list[dict[str, str]],
+) -> tuple[str, str, UniverseFilters | None]:
+    """Process a conversation and return reply, action, and extracted filters.
 
     Args:
-        message: Free-form user text, e.g. "Show me US tech stocks under $50".
+        messages: Full conversation history as list of {"role": ..., "content": ...}.
 
     Returns:
-        A populated ``UniverseFilters`` instance with only the relevant
-        filters set.
-
-    Raises:
-        RuntimeError: If the DeepSeek API key is missing or the API call fails.
+        A tuple of (reply text, action string, parsed filters or None).
     """
+    try:
+        return await _call_llm(messages)
+    except Exception:
+        logger.exception("Failed to process message through LLM")
+        return (
+            "Sorry, I couldn't interpret your request. Please try rephrasing.",
+            "none",
+            None,
+        )
+
+
+async def _call_llm(
+    messages: list[dict[str, str]],
+) -> tuple[str, str, UniverseFilters | None]:
+    """Call DeepSeek with conversation history and parse the structured response."""
     client = _get_client()
+
+    trimmed = messages[-MAX_HISTORY_MESSAGES:]
+    api_messages: list[dict[str, str]] = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        *[{"role": m["role"], "content": m["content"]} for m in trimmed],
+    ]
 
     response = await client.chat.completions.create(
         model="deepseek-chat",
         temperature=0,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": message},
-        ],
+        messages=api_messages,
         response_format={"type": "json_object"},
     )
 
@@ -168,15 +212,46 @@ async def parse_filters_from_nl(message: str) -> UniverseFilters:
         data: dict[str, Any] = json.loads(raw)
     except json.JSONDecodeError:
         logger.warning("Failed to parse DeepSeek response as JSON: %s", raw)
-        return UniverseFilters()
+        return ("I had trouble understanding that. Could you rephrase?", "none", None)
 
-    cleaned = _strip_nulls(data)
+    reply = data.get("reply", "")
+    action = data.get("action", "none")
+    if action not in ("add", "remove", "clear", "none"):
+        action = "none"
 
-    try:
-        return UniverseFilters.model_validate(cleaned)
-    except ValidationError as exc:
-        logger.warning("Filter validation failed: %s", exc)
-        return UniverseFilters()
+    raw_filters = data.get("filters", {})
+    if not isinstance(raw_filters, dict):
+        raw_filters = {}
+
+    cleaned = _strip_nulls(raw_filters)
+    filters: UniverseFilters | None = None
+
+    if action in ("add", "remove") and cleaned:
+        try:
+            filters = UniverseFilters.model_validate(cleaned)
+        except ValidationError as exc:
+            logger.warning("Filter validation failed: %s", exc)
+            filters = None
+
+    if not reply:
+        reply = _generate_fallback_reply(action, filters)
+
+    return reply, action, filters
+
+
+def _generate_fallback_reply(
+    action: str, filters: UniverseFilters | None
+) -> str:
+    """Create a reply when the LLM didn't provide one."""
+    if action == "clear":
+        return "I'll clear all active filters."
+    if action == "none":
+        return "I'm not sure what you'd like me to do. Try asking me to filter stocks."
+    if filters is None:
+        return "I couldn't detect any specific filters in your message."
+    summary = summarise_filters(filters)
+    verb = "add" if action == "add" else "remove"
+    return f"I'd like to {verb} these filters:\n{summary}"
 
 
 # ---------------------------------------------------------------------------
@@ -248,47 +323,6 @@ def summarise_filters(filters: UniverseFilters) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Public entry point (used by the /chat router)
-# ---------------------------------------------------------------------------
-
-
-async def process_message(message: str) -> tuple[str, UniverseFilters | None]:
-    """Process a user message and return a summary + extracted filters.
-
-    Args:
-        message: The user's chat message.
-
-    Returns:
-        A tuple of (human-readable reply, parsed filters or None on error).
-    """
-    try:
-        filters = await parse_filters_from_nl(message)
-    except Exception:
-        logger.exception("Failed to parse filters from message")
-        return (
-            "Sorry, I couldn't interpret your request. Please try rephrasing.",
-            None,
-        )
-
-    summary = summarise_filters(filters)
-    has_filters = bool(filters.model_dump(exclude_none=True))
-
-    if has_filters:
-        reply = (
-            f"I understood the following filters from your request:\n\n"
-            f"{summary}\n\n"
-            f"Would you like me to apply these filters?"
-        )
-    else:
-        reply = (
-            "I couldn't detect any specific filters in your message. "
-            "Try something like: \"Show me US tech stocks with PE under 25\"."
-        )
-
-    return reply, filters if has_filters else None
-
-
-# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -300,69 +334,3 @@ def _strip_nulls(obj: Any) -> Any:
     if isinstance(obj, list):
         return [_strip_nulls(i) for i in obj]
     return obj
-
-
-def _build_json_schema() -> dict[str, Any]:
-    """Build the JSON Schema describing ``UniverseFilters``.
-
-    This schema is no longer sent to the API (DeepSeek uses prompt-based
-    JSON-object mode), but is retained for documentation and potential
-    future use with providers that support strict schema enforcement.
-    """
-    numeric_range = {
-        "type": "object",
-        "properties": {
-            "min": {"anyOf": [{"type": "number"}, {"type": "null"}]},
-            "max": {"anyOf": [{"type": "number"}, {"type": "null"}]},
-        },
-        "required": ["min", "max"],
-        "additionalProperties": False,
-    }
-
-    nullable_range = {"anyOf": [numeric_range, {"type": "null"}]}
-    nullable_str_array = {
-        "anyOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]
-    }
-    nullable_str = {"anyOf": [{"type": "string"}, {"type": "null"}]}
-
-    properties: dict[str, Any] = {}
-    required: list[str] = []
-
-    categorical_keys = ["countries", "industries", "sub_industries", "currencies", "exchanges"]
-    for key in categorical_keys:
-        properties[key] = nullable_str_array
-        required.append(key)
-
-    properties["search"] = nullable_str
-    required.append("search")
-
-    numeric_keys = [
-        "price",
-        "market_cap",
-        "pe_ratio",
-        "pb_ratio",
-        "dividend_yield",
-        "earnings_per_share",
-        "return_on_equity",
-        "return_1m",
-        "return_3m",
-        "return_6m",
-        "return_1y",
-        "return_3y",
-        "return_5y",
-        "return_ytd",
-        "volatility_1y",
-        "sharpe_1y",
-        "sortino_1y",
-        "max_drawdown_1y",
-    ]
-    for key in numeric_keys:
-        properties[key] = nullable_range
-        required.append(key)
-
-    return {
-        "type": "object",
-        "properties": properties,
-        "required": required,
-        "additionalProperties": False,
-    }
