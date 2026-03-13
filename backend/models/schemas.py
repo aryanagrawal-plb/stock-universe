@@ -146,14 +146,22 @@ class UniverseFilters(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class ChatRequest(BaseModel):
-    """Incoming chat message from the user."""
+class ChatMessage(BaseModel):
+    """A single message in the conversation history."""
 
-    message: str
+    role: str
+    content: str
+
+
+class ChatRequest(BaseModel):
+    """Incoming chat request with full conversation history."""
+
+    messages: list[ChatMessage]
 
 
 class ChatResponse(BaseModel):
-    """AI agent reply, optionally including extracted filters."""
+    """AI agent reply, optionally including extracted filters and an action."""
 
     reply: str
     filters: UniverseFilters | None = None
+    action: str = "none"

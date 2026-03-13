@@ -1,209 +1,172 @@
-# Stock Universe — Architecture
+# Stock Universe — Architecture Overview
 
-## System Overview
+## System Diagram
 
-```mermaid
-flowchart TB
-    subgraph browser ["Browser (SPA)"]
-        App["App.vue"]
-        TopBar["TopBar"]
-        FilterBar["FilterBar"]
-        ScatterChart["ScatterChart\n(amCharts 5)"]
-        AiChat["AiChat"]
-        StockTable["StockTable\n(AG Grid)"]
-        useStocks["useStocks()"]
-        useChat["useChat()"]
-
-        App --> TopBar
-        App --> ScatterChart
-        App --> FilterBar
-        App --> AiChat
-        App --> StockTable
-        App --> useStocks
-        AiChat --> useChat
-    end
-
-    subgraph backend ["FastAPI Backend (:8000)"]
-        main["main.py\nCORS + routers"]
-        stocksRouter["GET /api/stocks"]
-        chatRouter["POST /api/chat"]
-        agent["agent.py\nparse_filters_from_nl()"]
-        schemas["schemas.py\nStock, UniverseFilters"]
-    end
-
-    subgraph data ["Data"]
-        universe["universe_master.json\n7,623 stocks × ~100 fields"]
-    end
-
-    subgraph llm ["External LLM"]
-        deepseek["DeepSeek Chat API"]
-    end
-
-    useStocks -- "GET /api/stocks" --> stocksRouter
-    useChat -- "POST /api/chat" --> chatRouter
-    chatRouter --> agent
-    agent -- "structured output" --> deepseek
-    stocksRouter --> universe
-    main --> stocksRouter
-    main --> chatRouter
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                          Browser (SPA)                              │
+│                                                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ App.vue                                                      │   │
+│  │  ┌───────────────────────────────────────────────────────┐  │   │
+│  │  │ TopBar                                                 │  │   │
+│  │  └───────────────────────────────────────────────────────┘  │   │
+│  │  ┌────────────────────────────┬──────────────────────────┐  │   │
+│  │  │                            │ FilterBar (expandable)   │  │   │
+│  │  │   ScatterChart  (70%)      │   [tags | search...]     │  │   │
+│  │  │   Market Cap vs P/E        ├──────────────────────────┤  │   │
+│  │  │                            │ AiChat                   │  │   │
+│  │  │                            │   message history        │  │   │
+│  │  │                            │   [input] [Send]         │  │   │
+│  │  ├────────────────────────────┴──────────────────────────┤  │   │
+│  │  │ StockTable (sortable, paginated)                       │  │   │
+│  │  │   Show [10][50][100]       1-50 of 500     ‹ 1/10 ›   │  │   │
+│  │  └───────────────────────────────────────────────────────┘  │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                          │                     │                    │
+│                   GET /api/stocks        POST /api/chat             │
+└──────────────────────────┼─────────────────────┼────────────────────┘
+                           │  Vite proxy :5173   │
+                           │  → :8000            │
+┌──────────────────────────┼─────────────────────┼────────────────────┐
+│                     FastAPI Backend                                  │
+│                                                                     │
+│  ┌─────────────┐   ┌──────────────┐   ┌───────────────────────┐   │
+│  │ stocks.py   │   │  chat.py     │   │  main.py              │   │
+│  │ GET /stocks │   │  POST /chat  │   │  CORS, router mount   │   │
+│  └──────┬──────┘   └──────┬───────┘   └───────────────────────┘   │
+│         │                 │                                         │
+│         ▼                 ▼                                         │
+│  ┌─────────────┐   ┌──────────────┐                                │
+│  │ stocks.json │   │  agent.py    │                                │
+│  │ (data)      │   │  (AI stub)   │                                │
+│  └─────────────┘   └──────────────┘                                │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Request Flow
+## Data Flow
 
-### Stock Data
+### 1. Stock Data Pipeline
 
-```mermaid
-sequenceDiagram
-    participant FE as Frontend
-    participant API as GET /api/stocks
-    participant JSON as universe_master.json
-
-    FE->>API: fetch all stocks
-    API->>JSON: load (cached after first call)
-    JSON-->>API: 7,623 records
-    API-->>FE: list[Stock] (JSON)
-    Note over FE: useStocks() stores in ref,<br/>FilterBar + ScatterChart +<br/>StockTable all react to it
+```
+                        ┌────────────┐
+                        │ stocks.json│
+                        └──────┬─────┘
+                               │ load on request
+                               ▼
+                        ┌────────────┐
+                        │ GET /stocks│  (FastAPI router)
+                        └──────┬─────┘
+                               │ JSON response
+                               ▼
+                     ┌──────────────────┐
+                     │ useStocks.ts     │
+                     │  stocks (ref)    │
+                     │  filterChips     │
+                     │  filteredStocks  │  ← computed from stocks + chips
+                     └────────┬─────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+      ┌──────────────┐ ┌───────────┐ ┌──────────────┐
+      │ FilterBar    │ │ Scatter   │ │ StockTable   │
+      │ (all stocks  │ │ Chart     │ │ (filtered    │
+      │  for search) │ │ (filtered)│ │  + sorted    │
+      └──────────────┘ └───────────┘ │  + paginated)│
+                                      └──────────────┘
 ```
 
-### NLP Chat-to-Filters
+### 2. Filter Flow
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant Chat as AiChat.vue
-    participant API as POST /api/chat
-    participant Agent as agent.py
-    participant LLM as DeepSeek API
-
-    User->>Chat: "US tech stocks with PE under 30"
-    Chat->>API: { message: "..." }
-    API->>Agent: process_message()
-    Agent->>LLM: system prompt + user message
-    LLM-->>Agent: JSON { countries, industries, pe_ratio }
-    Agent-->>Agent: validate → UniverseFilters
-    Agent-->>Agent: summarise_filters() → human-readable text
-    Agent-->>API: (reply, filters)
-    API-->>Chat: { reply: "...", filters: {...} }
-    Chat-->>User: shows summary + confirmation prompt
+```
+  User types "tech"
+        │
+        ▼
+  ┌──────────────────────────────┐
+  │ FilterBar                    │
+  │  suggestions = computed()    │  ← matches across all stock fields
+  │  grouped dropdown appears    │
+  └──────────┬───────────────────┘
+             │ user clicks "Sector: Technology"
+             ▼
+  emit("update:filterChips", [...chips, { category: "Sector", value: "Technology" }])
+             │
+             ▼
+  ┌──────────────────────────────┐
+  │ App.vue                      │
+  │  filterChips = $event        │  ← updates the ref in useStocks
+  └──────────┬───────────────────┘
+             │ triggers recompute
+             ▼
+  ┌──────────────────────────────┐
+  │ useStocks.filteredStocks     │
+  │  group chips by category     │
+  │  AND across categories       │
+  │  OR within same category     │
+  └──────────┬───────────────────┘
+             │
+      ┌──────┴──────┐
+      ▼             ▼
+  ScatterChart   StockTable
+  (re-renders)   (re-renders)
 ```
 
----
+### 3. Chat Flow
 
-## Directory Map
-
-```text
-stock-universe/
-│
-├── data/
-│   └── universe_master.json         # Source of truth: 7,623 stocks
-│                                     # Fields: Code, Name, Ticker, Country,
-│                                     # Industry, Exchange, Price, Market_Cap,
-│                                     # Pe_Ratio, Returns, Volatility, Sharpe, etc.
-│
-├── backend/
-│   ├── main.py                      # FastAPI app, CORS, router mounts
-│   ├── pyproject.toml               # Python deps + ruff/pytest config
-│   ├── .env.example                 # DEEPSEEK_API_KEY template
-│   │
-│   ├── routers/
-│   │   ├── stocks.py                # GET /api/stocks → cached JSON load
-│   │   └── chat.py                  # POST /api/chat → agent.process_message()
-│   │
-│   ├── services/
-│   │   └── agent.py                 # Core NLP logic:
-│   │                                #   parse_filters_from_nl() → UniverseFilters
-│   │                                #   summarise_filters() → human-readable text
-│   │                                #   process_message() → (reply, filters)
-│   │                                #   SYSTEM_PROMPT with all valid values
-│   │                                #   _build_json_schema() for reference
-│   │
-│   ├── models/
-│   │   └── schemas.py               # Pydantic models:
-│   │                                #   Stock (with aliases for universe JSON)
-│   │                                #   NumericRange (min/max)
-│   │                                #   UniverseFilters (all filter fields)
-│   │                                #   ChatRequest / ChatResponse
-│   │
-│   ├── scripts/
-│   │   └── test_parse_filters.py    # CLI tool to test NLP pipeline live
-│   │
-│   ├── docs/
-│   │   └── sample_chat_responses.json  # 7 example request/response pairs
-│   │
-│   ├── data/
-│   │   └── stocks.json              # Legacy 10-stock sample (unused)
-│   │
-│   └── tests/
-│       ├── test_stocks.py           # GET /api/stocks endpoint tests
-│       └── test_agent.py            # 16 tests: models, summariser,
-│                                    #   mocked LLM parsing, helpers
-│
-└── frontend/
-    ├── index.html                   # HTML shell
-    ├── package.json                 # Node deps (Vue, amCharts, AG Grid, Bootstrap)
-    ├── vite.config.ts               # Dev server + /api proxy → :8000
-    ├── tsconfig.json                # TypeScript config
-    │
-    └── src/
-        ├── main.ts                  # App bootstrap, plugin registration
-        ├── App.vue                  # Root: owns useStocks(), wires children
+```
+  User types "What are the top tech stocks?"
         │
-        ├── components/
-        │   ├── TopBar.vue           # Header bar with logo
-        │   ├── FilterBar.vue        # Autocomplete input with tag chips
-        │   ├── ScatterChart.vue     # amCharts 5 scatter plot
-        │   ├── StockTable.vue       # AG Grid with sorting + pagination
-        │   └── AiChat.vue           # Chat sidebar panel
-        │
-        ├── composables/
-        │   ├── useStocks.ts         # Stock fetching + chip-based filtering
-        │   └── useChat.ts           # Chat messages + POST /api/chat
-        │
-        ├── types/
-        │   └── stock.ts             # Stock, StockFilters, FilterChip, ChatMessage
-        │
-        └── styles/
-            ├── main.scss            # Global entry point
-            ├── _variables.scss      # Theme colours + spacing
-            ├── _ag-grid-theme.scss  # AG Grid dark theme overrides
-            ├── _bootstrap-overrides.scss
-            └── _utilities.scss      # Helper classes
+        ▼
+  ┌──────────────────────────┐
+  │ AiChat.vue               │
+  │  handleSend()            │
+  └──────────┬───────────────┘
+             │
+             ▼
+  ┌──────────────────────────┐
+  │ useChat.ts               │
+  │  messages.push(user msg) │
+  │  POST /api/chat          │──────────┐
+  │  messages.push(reply)    │          │
+  └──────────────────────────┘          ▼
+                              ┌──────────────────┐
+                              │ chat.py router   │
+                              │  → agent.py      │
+                              │  process_message │
+                              │  → reply string  │
+                              └──────────────────┘
 ```
 
 ---
 
 ## Frontend Components
 
-### Component Tree
-
-```mermaid
-flowchart TD
-    AppVue["App.vue\n(useStocks)"]
-    TopBar["TopBar"]
-    ScatterChart["ScatterChart\n:stocks=filteredStocks"]
-    FilterBar["FilterBar\n:stocks, :filterChips\n@update:filterChips"]
-    AiChat["AiChat\n(useChat)"]
-    StockTable["StockTable\n:stocks=filteredStocks\n:isLoading, :error"]
-
-    AppVue --> TopBar
-    AppVue --> ScatterChart
-    AppVue --> FilterBar
-    AppVue --> AiChat
-    AppVue --> StockTable
-```
-
 ### Component Responsibilities
 
-| Component        | Role                                                                             |
-| ---------------- | -------------------------------------------------------------------------------- |
-| **App.vue**      | Root orchestrator. Calls `useStocks()`, fetches on mount, passes data to children. |
-| **TopBar**       | App header with logo and title.                                                  |
-| **FilterBar**    | Autocomplete search with inline tag chips. Matches across all stock fields. Emits chip updates. |
-| **ScatterChart** | amCharts 5 scatter plot (Market Cap vs P/E), coloured by industry. Receives filtered stocks. |
-| **StockTable**   | AG Grid Enterprise table with server-style sorting and pagination. Receives filtered stocks. |
-| **AiChat**       | Chat sidebar. Sends user messages to `/api/chat`, displays AI replies with filter summaries. |
+| Component | Role | Props In | Events Out |
+|-----------|------|----------|------------|
+| **App.vue** | Root orchestrator. Owns stock state via `useStocks()`, fetches on mount, wires all children. | — | — |
+| **TopBar** | App header with logo, title, navigation buttons. | — | — |
+| **FilterBar** | Expandable panel with autocomplete search input containing inline tag chips. Computes suggestions from all stock fields. | `stocks`, `filterChips`, `resultCount` | `update:filterChips` |
+| **ScatterChart** | Chart.js scatter plot: Market Cap (x) vs P/E Ratio (y), color-coded by sector. | `stocks` (filtered) | — |
+| **StockTable** | Sortable, paginated data table. Sorts client-side; only renders the current page (10/50/100 rows). | `stocks` (filtered), `isLoading`, `error` | — |
+| **AiChat** | Sidebar chat panel with full message history, input, and send button. | — | — |
+
+### Component Tree
+
+```
+App.vue
+ ├── TopBar
+ ├── [chart-chat-row]                    ← flex row (70/30 split)
+ │    ├── ScatterChart                   ← receives filteredStocks
+ │    └── [chat-section]                 ← flex column
+ │         ├── FilterBar                 ← receives stocks + filterChips
+ │         └── AiChat                    ← independent, uses useChat()
+ └── [content]
+      └── StockTable                     ← receives filteredStocks
+```
 
 ---
 
@@ -211,187 +174,157 @@ flowchart TD
 
 ### `useStocks()`
 
-Called once in `App.vue`. Owns all stock data and filtering state.
+Centralised stock data and filtering logic. Called once in `App.vue`.
 
-```mermaid
-flowchart TD
-    fetch["fetchStocks()\nGET /api/stocks"]
-    stocks["stocks: Ref"]
-    chips["filterChips: Ref"]
-    filtered["filteredStocks: computed\nAND across categories\nOR within same category"]
-
-    fetch --> stocks
-    stocks --> filtered
-    chips --> filtered
-    filtered --> ScatterChart
-    filtered --> StockTable
+```
+┌─────────────────────────────────────────────────────┐
+│ useStocks()                                          │
+│                                                      │
+│  ┌──────────┐    ┌──────────────┐                   │
+│  │ stocks   │    │ filterChips  │                   │
+│  │ ref<[]>  │    │ ref<[]>      │                   │
+│  └────┬─────┘    └──────┬───────┘                   │
+│       │                 │                            │
+│       └────────┬────────┘                            │
+│                ▼                                     │
+│  ┌───────────────────────┐                           │
+│  │ filteredStocks        │  (computed)               │
+│  │  • group chips by cat │                           │
+│  │  • OR within category │                           │
+│  │  • AND across cats    │                           │
+│  └───────────────────────┘                           │
+│                                                      │
+│  fetchStocks() → GET /api/stocks → stocks.value      │
+│  isLoading, error                                    │
+└─────────────────────────────────────────────────────┘
 ```
 
 ### `useChat()`
 
-Called inside `AiChat.vue`. Manages chat message history independently.
+Independent chat state. Called inside `AiChat.vue`.
 
-```mermaid
-flowchart TD
-    send["sendMessage(text)"]
-    push1["messages.push(user msg)"]
-    api["POST /api/chat"]
-    push2["messages.push(AI reply)"]
-
-    send --> push1 --> api --> push2
+```
+┌─────────────────────────────────────────┐
+│ useChat()                                │
+│                                          │
+│  messages: ref<ChatMessage[]>            │
+│  isSending: ref<boolean>                 │
+│                                          │
+│  sendMessage(text)                       │
+│    → push { role: "user", content }      │
+│    → POST /api/chat                      │
+│    → push { role: "assistant", content } │
+└─────────────────────────────────────────┘
 ```
 
 ---
 
-## Backend: NLP-to-Filters Pipeline
+## Backend
 
-### How `parse_filters_from_nl()` Works
+### Request Routing
 
-```mermaid
-flowchart LR
-    Input["User message\n(string)"]
-    SysPrompt["System prompt\n(all valid values,\nfield descriptions,\nmapping rules)"]
-    LLM["DeepSeek Chat\nmodel: deepseek-chat\nresponse_format: json_object"]
-    Parse["json.loads() →\n_strip_nulls() →\nUniverseFilters.model_validate()"]
-    Output["UniverseFilters\n(Pydantic model)"]
-
-    Input --> LLM
-    SysPrompt --> LLM
-    LLM --> Parse --> Output
+```
+main.py
+ ├── CORSMiddleware (allow localhost:5173)
+ ├── GET  /api/health → { status: "ok" }
+ ├── routers/stocks.py
+ │    └── GET /api/stocks → load stocks.json → filter → list[Stock]
+ └── routers/chat.py
+      └── POST /api/chat → agent.process_message() → ChatResponse
 ```
 
-### `UniverseFilters` Schema
+### Pydantic Schemas
 
-```text
-UniverseFilters
-├── Categorical (list[str] | None)
-│   ├── countries         # "United States", "Japan", ...
-│   ├── industries        # "Technology", "Healthcare", ...
-│   ├── sub_industries    # "Software & IT Services", ...
-│   ├── currencies        # "USD", "EUR", "JPY", ...
-│   └── exchanges         # "NYSE", "Nasdaq", "Tokyo SE", ...
-│
-├── Text search (str | None)
-│   └── search            # substring match on ticker/name
-│
-├── Fundamentals (NumericRange | None)
-│   ├── price
-│   ├── market_cap
-│   ├── pe_ratio
-│   ├── pb_ratio
-│   ├── dividend_yield
-│   ├── earnings_per_share
-│   └── return_on_equity
-│
-├── Returns (NumericRange | None)
-│   ├── return_1m / 3m / 6m / 1y / 3y / 5y / ytd
-│
-└── Risk (NumericRange | None)
-    ├── volatility_1y
-    ├── sharpe_1y
-    ├── sortino_1y
-    └── max_drawdown_1y
+```
+┌────────────────────────────────────┐
+│ Stock                              │
+│  ticker: str                       │
+│  name: str                         │
+│  sector: str                       │
+│  price: float                      │
+│  market_cap: float                 │
+│  pe_ratio: float | None            │
+│  dividend_yield: float | None      │
+│  volume: int                       │
+└────────────────────────────────────┘
 
-NumericRange = { min: float | None, max: float | None }
+┌─────────────────┐  ┌──────────────────┐
+│ ChatRequest     │  │ ChatResponse     │
+│  message: str   │  │  reply: str      │
+└─────────────────┘  └──────────────────┘
 ```
 
-### System Prompt Strategy
+### Data Source
 
-The system prompt in `agent.py` includes:
-- All valid categorical values (countries, industries, exchanges, currencies) with exact spelling
-- A table mapping each numeric filter key to its meaning
-- Mapping rules for common phrases (e.g., "cheap stocks" → `price.max: 20`, "large cap" → `market_cap.min: 10000`)
-- Instructions to only set fields the user mentioned and to return `{}` when no filter is detected
+`backend/data/stocks.json` — static JSON array of stock objects. Loaded on each request (suitable for the current dataset; for 40k+ rows, consider loading once at startup or using a database).
 
 ---
 
-## Data: `universe_master.json`
+## Filter Chip System
 
-7,623 stock records, each with approximately 100 fields:
-
-| Category      | Example Fields                                                          |
-| ------------- | ----------------------------------------------------------------------- |
-| Identity      | Code, Name, Ticker, RIC, ISIN, SEDOL, FIGI                            |
-| Classification| Country, Industry, Sub-Industry, Exchange, Currency                     |
-| Fundamentals  | Price, Market\_Cap, Pe\_Ratio, Pb\_Ratio, Dividend\_Yield, EPS, ROE     |
-| Returns       | Return\_{1M, 3M, 6M, 1Y, 3Y, 5Y, 10Y, MTD, QTD, YTD}                |
-| Volatility    | Volatility\_{1M, 3M, 6M, 1Y, 3Y, 5Y, 10Y, MTD, QTD, YTD}            |
-| Sharpe        | Sharpe\_{1M, 3M, ..., YTD}                                            |
-| Sortino       | Sortino\_{1M, 3M, ..., YTD}                                           |
-| Skewness      | Skewness\_{1M, 3M, ..., YTD}                                          |
-| Kurtosis      | Kurtosis\_{1M, 3M, ..., YTD}                                          |
-| Max Drawdown  | Max\_Drawdown\_{1M, 3M, ..., YTD}                                     |
-| VaR           | VaR\_{1M, 3M, ..., YTD}                                               |
-
-The `Stock` Pydantic model uses field aliases (e.g., `Field(alias="Market_Cap")`) to map JSON keys to snake\_case Python attributes. Fields with `None` in the source data are coerced to empty strings for text fields via the `StrOrEmpty` validator.
-
----
-
-## Filter Chip System (Frontend)
-
-### FilterChip Type
+### Type
 
 ```typescript
 interface FilterChip {
-  category: string;   // "Country", "Industry", "Ticker", "Price", etc.
-  value: string;      // "United States", "Technology", "AAPL", etc.
+  category: string;   // "Sector", "Ticker", "Name", "Price", etc.
+  value: string;      // "Technology", "AAPL", "$178.72", etc.
 }
 ```
 
+### Category → Stock Field Mapping
+
+| Category   | Stock Field      | Format             | Example Value |
+|------------|------------------|--------------------|---------------|
+| Sector     | `sector`         | raw string         | Technology    |
+| Ticker     | `ticker`         | raw string         | AAPL          |
+| Name       | `name`           | raw string         | Apple Inc.    |
+| Price      | `price`          | `.toFixed(2)`      | 178.72        |
+| Market Cap | `market_cap`     | `$2.8T` / `$150B`  | $2.8T         |
+| P/E        | `pe_ratio`       | `.toFixed(1)`      | 28.5          |
+| Div Yield  | `dividend_yield` | `.toFixed(2)%`     | 0.55%         |
+| Volume     | `volume`         | `45.2M` / `1.2K`   | 45.2M         |
+
 ### Filtering Logic
 
-```mermaid
-flowchart TD
-    Chips["filterChips = [\n  {Country, 'US'},\n  {Country, 'Japan'},\n  {Industry, 'Technology'}\n]"]
-    Group["Group by category:\n  Country: ['US','Japan'] → OR\n  Industry: ['Technology'] → OR"]
-    Apply["AND across categories:\n  (country=US OR country=Japan)\n  AND industry=Technology"]
-    Result["filteredStocks"]
-
-    Chips --> Group --> Apply --> Result
 ```
+chips = [
+  { category: "Sector", value: "Technology" },
+  { category: "Sector", value: "Financials" },
+  { category: "Price",  value: "178.72" }
+]
 
-- **Within a category**: OR logic (match any)
-- **Across categories**: AND logic (must satisfy all)
+→ Group by category:
+  Sector: ["Technology", "Financials"]   ← OR (match either)
+  Price:  ["178.72"]                     ← AND with above
+
+→ Result: stocks where
+     (sector = "Technology" OR sector = "Financials")
+  AND price = 178.72
+```
 
 ---
 
-## Testing
+## Performance Considerations
 
-### Test Files
-
-| File                    | Tests | What it covers                                              |
-| ----------------------- | ----- | ----------------------------------------------------------- |
-| `tests/test_stocks.py`  | 4     | GET /api/stocks returns data with expected schema fields    |
-| `tests/test_agent.py`   | 16    | UniverseFilters model, summarise\_filters(), parse with mocked LLM, helpers |
-
-### Running Tests
-
-```bash
-cd backend
-source .venv/bin/activate
-pytest -v                     # all tests
-pytest tests/test_agent.py -v # just NLP agent tests
-pytest tests/test_stocks.py -v # just stock endpoint tests
-```
-
-All agent tests mock the DeepSeek API call, so no API key or network access is needed.
+| Concern | Strategy |
+|---------|----------|
+| **40k rows in table** | Only the current page (10/50/100 rows) is rendered to the DOM. Sorting uses native `Array.sort()` on the filtered set via a Vue `computed`. |
+| **Sorting speed** | `computed` caches until data or sort state changes. `Array.sort()` on 40k items is ~5–10ms in modern browsers. |
+| **Filter recomputation** | `filteredStocks` is a `computed` — only recalculates when `stocks` or `filterChips` change. Single pass through the array. |
+| **Autocomplete suggestions** | Capped at 25 results to keep the dropdown responsive. |
+| **Chart re-renders** | Chart.js receives the filtered dataset; only re-renders when `filteredStocks` changes. |
 
 ---
 
-## Development Workflow
+## Technology Stack
 
-```mermaid
-flowchart LR
-    subgraph dev ["Development"]
-        BE["Backend\nuvicorn main:app --reload\n:8000"]
-        FE["Frontend\nnpm run dev\n:5173"]
-        Proxy["Vite proxy\n/api → :8000"]
-    end
-
-    FE --> Proxy --> BE
-```
-
-1. Start the backend: `cd backend && uvicorn main:app --reload`
-2. Start the frontend: `cd frontend && npm run dev`
-3. Open **http://localhost:5173** in your browser
-4. The Vite dev server proxies all `/api/*` requests to the backend at `:8000`
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| Frontend framework | Vue 3 (Composition API) | Reactive UI components |
+| Build tool | Vite | Fast dev server with HMR, API proxy |
+| Charts | Chart.js + vue-chartjs | Scatter plot visualisation |
+| Language | TypeScript | Type safety across frontend |
+| Backend framework | FastAPI | High-performance async API |
+| Validation | Pydantic v2 | Request/response schema validation |
+| Server | Uvicorn | ASGI server with hot reload |
+| Data | Static JSON | Stock universe dataset |

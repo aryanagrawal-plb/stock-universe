@@ -1,24 +1,59 @@
 <script setup lang="ts">
-import { onMounted } from "vue";
+import { onMounted, computed } from "vue";
 import TopBar from "./components/TopBar.vue";
 import FilterBar from "./components/FilterBar.vue";
 import AiChat from "./components/AiChat.vue";
 import ScatterChart from "./components/ScatterChart.vue";
 import StockTable from "./components/StockTable.vue";
-import { useStocks } from "./composables/useStocks";
+import { useStocks, aiFiltersToChips } from "./composables/useStocks";
+import type { UniverseFilters, FilterChip } from "./types/stock";
 
 const {
   stocks,
   filteredStocks,
   filterChips,
+  aiFilters,
   isLoading,
   error,
   fetchStocks,
   pinnedCodes,
   togglePin,
+  applyAiFilters,
+  removeAiFilters,
+  clearAiFilters,
+  clearAllFilters,
+  restoreFilters,
 } = useStocks();
 
-onMounted(() => fetchStocks());
+const displayChips = computed<FilterChip[]>(() => {
+  const manual = filterChips.value;
+  const ai = aiFilters.value ? aiFiltersToChips(aiFilters.value) : [];
+  return [...manual, ...ai];
+});
+
+const totalResultCount = computed(() => filteredStocks.value.length);
+
+function handleUpdateFilterChips(chips: FilterChip[]): void {
+  clearAiFilters();
+  filterChips.value = chips;
+}
+
+function handleAiFilters(filters: UniverseFilters): void {
+  applyAiFilters(filters);
+}
+
+function handleRemoveFilters(filters: UniverseFilters): void {
+  removeAiFilters(filters);
+}
+
+function handleClearFilters(): void {
+  clearAllFilters();
+}
+
+onMounted(() => {
+  restoreFilters();
+  fetchStocks();
+});
 </script>
 
 <template>
@@ -32,11 +67,15 @@ onMounted(() => fetchStocks());
         <aside class="pl-sidebar-section">
           <FilterBar
             :stocks="stocks"
-            :filter-chips="filterChips"
-            :result-count="filteredStocks.length"
-            @update:filter-chips="filterChips = $event"
+            :filter-chips="displayChips"
+            :result-count="totalResultCount"
+            @update:filter-chips="handleUpdateFilterChips"
           />
-          <AiChat />
+          <AiChat
+            @apply-filters="handleAiFilters"
+            @remove-filters="handleRemoveFilters"
+            @clear-filters="handleClearFilters"
+          />
         </aside>
       </div>
       <main class="pl-content">
@@ -88,6 +127,7 @@ onMounted(() => fetchStocks());
   min-width: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .pl-content {
