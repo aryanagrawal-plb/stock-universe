@@ -469,7 +469,7 @@ const tooltipY = computed(() => {
 
 <style scoped>
 .scatter-container {
-  padding: 16px 20px;
+  padding: 16px 24px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -560,7 +560,7 @@ const tooltipY = computed(() => {
   color: #495057;
   background: #f1f3f5;
   border: 1px solid #d8dde2;
-  border-radius: 4px;
+  border-radius: 0.25rem;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
