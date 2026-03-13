@@ -240,6 +240,9 @@ const defaultColDef: ColDef = {
   resizable: true,
   suppressMovable: true,
 };
+
+const popupParent =
+  typeof document !== "undefined" ? document.body : undefined;
 </script>
 
 <template>
@@ -316,6 +319,7 @@ const defaultColDef: ColDef = {
         :suppressPaginationPanel="false"
         :animateRows="true"
         :suppressCellFocus="true"
+        :popupParent="popupParent"
         :overlayLoadingTemplate="'<span>Loading stocks...</span>'"
         :overlayNoRowsTemplate="'<span>No stocks match filters</span>'"
         @grid-ready="onGridReady"
