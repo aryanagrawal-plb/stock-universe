@@ -13,18 +13,21 @@
 │  │  └───────────────────────────────────────────────────────┘  │   │
 │  │  ┌────────────────────────────┬──────────────────────────┐  │   │
 │  │  │                            │ FilterBar (expandable)   │  │   │
-│  │  │   ScatterChart  (70%)      │   [tags | search...]     │  │   │
-│  │  │   Market Cap vs P/E        ├──────────────────────────┤  │   │
-│  │  │                            │ AiChat                   │  │   │
-│  │  │                            │   message history        │  │   │
-│  │  │                            │   [input] [Send]         │  │   │
+│  │  │   ScatterChart  (70%)      │   [chips | search...]    │  │   │
+│  │  │   1Y Volatility vs        ├──────────────────────────┤  │   │
+│  │  │   1Y Return               │ AiChat                   │  │   │
+│  │  │   (amcharts5, grouped     │   message history        │  │   │
+│  │  │    by industry)           │   filter chip previews   │  │   │
+│  │  │                            │   [Apply] [Dismiss]      │  │   │
+│  │  │                            │   [input] [Send]  [🗑]   │  │   │
 │  │  ├────────────────────────────┴──────────────────────────┤  │   │
-│  │  │ StockTable (sortable, paginated)                       │  │   │
+│  │  │ StockTable (AG Grid — sortable, paginated)             │  │   │
 │  │  │   Show [10][50][100]       1-50 of 500     ‹ 1/10 ›   │  │   │
 │  │  └───────────────────────────────────────────────────────┘  │   │
 │  └─────────────────────────────────────────────────────────────┘   │
 │                          │                     │                    │
 │                   GET /api/stocks        POST /api/chat             │
+│                                    {messages: [...history]}        │
 └──────────────────────────┼─────────────────────┼────────────────────┘
                            │  Vite proxy :5173   │
                            │  → :8000            │
@@ -37,10 +40,15 @@
 │  └──────┬──────┘   └──────┬───────┘   └───────────────────────┘   │
 │         │                 │                                         │
 │         ▼                 ▼                                         │
-│  ┌─────────────┐   ┌──────────────┐                                │
-│  │ stocks.json │   │  agent.py    │                                │
-│  │ (data)      │   │  (AI stub)   │                                │
-│  └─────────────┘   └──────────────┘                                │
+│  ┌──────────────┐  ┌──────────────┐                                │
+│  │ universe_    │  │  agent.py    │───────┐                        │
+│  │ master.json  │  │  (DeepSeek) │       │                        │
+│  │ (40k stocks) │  └──────────────┘       ▼                        │
+│  └──────────────┘                  ┌──────────────┐                │
+│                                    │ DeepSeek API │                │
+│                                    │ (OpenAI-     │                │
+│                                    │  compatible) │                │
+│                                    └──────────────┘                │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -51,93 +59,144 @@
 ### 1. Stock Data Pipeline
 
 ```
-                        ┌────────────┐
-                        │ stocks.json│
-                        └──────┬─────┘
-                               │ load on request
-                               ▼
-                        ┌────────────┐
-                        │ GET /stocks│  (FastAPI router)
-                        └──────┬─────┘
-                               │ JSON response
-                               ▼
-                     ┌──────────────────┐
-                     │ useStocks.ts     │
-                     │  stocks (ref)    │
-                     │  filterChips     │
-                     │  filteredStocks  │  ← computed from stocks + chips
-                     └────────┬─────────┘
-                              │
-              ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
-      ┌──────────────┐ ┌───────────┐ ┌──────────────┐
-      │ FilterBar    │ │ Scatter   │ │ StockTable   │
-      │ (all stocks  │ │ Chart     │ │ (filtered    │
-      │  for search) │ │ (filtered)│ │  + sorted    │
-      └──────────────┘ └───────────┘ │  + paginated)│
-                                      └──────────────┘
+                     ┌───────────────────┐
+                     │ universe_master   │
+                     │ .json (40k rows)  │
+                     └────────┬──────────┘
+                              │ cached in memory on first load
+                              ▼
+                     ┌───────────────────┐
+                     │ GET /api/stocks   │  (FastAPI router)
+                     │ response_model_   │
+                     │ by_alias=False    │  → snake_case JSON
+                     └────────┬──────────┘
+                              │ JSON response
+                              ▼
+                  ┌──────────────────────────┐
+                  │ useStocks.ts             │
+                  │  stocks (ref)            │
+                  │  filterChips (manual)    │
+                  │  aiFilters (AI-driven)   │
+                  │  filteredStocks (computed)│  ← chips + AI + numeric ranges
+                  │  displayChips (computed)  │  ← merged manual + AI chips
+                  └──────────┬───────────────┘
+                             │
+             ┌───────────────┼───────────────┐
+             ▼               ▼               ▼
+     ┌──────────────┐ ┌───────────┐ ┌──────────────┐
+     │ FilterBar    │ │ Scatter   │ │ StockTable   │
+     │ (all stocks  │ │ Chart     │ │ (filtered    │
+     │  for search, │ │ (filtered)│ │  + sorted    │
+     │  displayChips│ │           │ │  + paginated)│
+     │  shown)      │ └───────────┘ └──────────────┘
+     └──────────────┘
 ```
 
-### 2. Filter Flow
+### 2. Filter Flow (Manual + AI Combined)
 
 ```
-  User types "tech"
+  ┌──────────────────────────────────────────────────────┐
+  │                  Two filter sources                   │
+  │                                                       │
+  │   filterChips[]  ←── manual (FilterBar selections)   │
+  │   aiFilters{}    ←── AI-confirmed filters            │
+  │                                                       │
+  │   filteredStocks = stocks                             │
+  │     .filter(chip groups: OR within, AND across)      │
+  │     .filter(AI: categorical + numeric ranges)        │
+  │                                                       │
+  │   displayChips = [...manual, ...aiFiltersToChips()]  │
+  └──────────────────────────────────────────────────────┘
+
+  Manual path:
+    User types "tech" → FilterBar suggestions → clicks "Industry: Technology"
+      → emit update:filterChips → App.vue sets filterChips
+      → filteredStocks recomputes → ScatterChart + StockTable re-render
+
+  AI path:
+    User asks "Show US tech stocks under $50"
+      → AiChat → useChat → POST /api/chat (full history)
+      → DeepSeek returns { reply, action: "add", filters: {...} }
+      → Message shown with chip preview + [Apply] [Dismiss]
+      → User confirms → emit apply-filters → App.vue calls applyAiFilters()
+      → aiFilters merged → filteredStocks recomputes
+      → displayChips includes AI chips → FilterBar shows them
+```
+
+### 3. AI Chat Flow (with Persistence and Confirmation)
+
+```
+  User types "Show me US tech stocks under $50"
         │
         ▼
-  ┌──────────────────────────────┐
-  │ FilterBar                    │
-  │  suggestions = computed()    │  ← matches across all stock fields
-  │  grouped dropdown appears    │
-  └──────────┬───────────────────┘
-             │ user clicks "Sector: Technology"
-             ▼
-  emit("update:filterChips", [...chips, { category: "Sector", value: "Technology" }])
+  ┌─────────────────────────────────┐
+  │ AiChat.vue                      │
+  │  handleSend() / Enter key       │
+  └──────────┬──────────────────────┘
              │
              ▼
-  ┌──────────────────────────────┐
-  │ App.vue                      │
-  │  filterChips = $event        │  ← updates the ref in useStocks
-  └──────────┬───────────────────┘
-             │ triggers recompute
-             ▼
-  ┌──────────────────────────────┐
-  │ useStocks.filteredStocks     │
-  │  group chips by category     │
-  │  AND across categories       │
-  │  OR within same category     │
-  └──────────┬───────────────────┘
+  ┌─────────────────────────────────┐
+  │ useChat.ts                      │
+  │  push user msg to messages[]    │
+  │  persist to localStorage        │◄─── "stock-universe-chat"
+  │  POST /api/chat                 │
+  │    body: { messages: [...] }    │──── full conversation history
+  └──────────┬──────────────────────┘
              │
-      ┌──────┴──────┐
-      ▼             ▼
-  ScatterChart   StockTable
-  (re-renders)   (re-renders)
+             ▼
+  ┌─────────────────────────────────┐     ┌──────────────────┐
+  │ chat.py router                  │────▶│ agent.py         │
+  │  extract messages[]             │     │  SYSTEM_PROMPT   │
+  │  call process_message()         │     │  + last 20 msgs  │
+  └─────────────────────────────────┘     │  → DeepSeek API  │
+                                          └────────┬─────────┘
+             ┌─────────────────────────────────────┘
+             ▼
+  ┌─────────────────────────────────┐
+  │ DeepSeek returns JSON:          │
+  │  {                              │
+  │    reply: "I'll filter for...", │
+  │    action: "add",               │
+  │    filters: {                   │
+  │      countries: ["US"],         │
+  │      industries: ["Technology"],│
+  │      price: { max: 50 }        │
+  │    }                            │
+  │  }                              │
+  └──────────┬──────────────────────┘
+             │
+             ▼
+  ┌─────────────────────────────────┐
+  │ useChat.ts                      │
+  │  push assistant msg with:       │
+  │    pendingFilters = filters     │
+  │    action = "add"               │
+  │    filterStatus = "pending"     │
+  │  persist to localStorage        │
+  └──────────┬──────────────────────┘
+             │
+             ▼
+  ┌─────────────────────────────────┐
+  │ AiChat.vue renders:             │
+  │  "I'll filter for..."           │
+  │  ┌──────────────────────────┐  │
+  │  │ ADD: [Country: US]       │  │  ← chip preview
+  │  │      [Industry: Tech]    │  │
+  │  │      [Price: ≤ 50]       │  │
+  │  ├──────────────────────────┤  │
+  │  │ [Apply]  [Dismiss]       │  │  ← or Enter / Esc
+  │  └──────────────────────────┘  │
+  └─────────────────────────────────┘
 ```
 
-### 3. Chat Flow
+### 4. Action Types
 
-```
-  User types "What are the top tech stocks?"
-        │
-        ▼
-  ┌──────────────────────────┐
-  │ AiChat.vue               │
-  │  handleSend()            │
-  └──────────┬───────────────┘
-             │
-             ▼
-  ┌──────────────────────────┐
-  │ useChat.ts               │
-  │  messages.push(user msg) │
-  │  POST /api/chat          │──────────┐
-  │  messages.push(reply)    │          │
-  └──────────────────────────┘          ▼
-                              ┌──────────────────┐
-                              │ chat.py router   │
-                              │  → agent.py      │
-                              │  process_message │
-                              │  → reply string  │
-                              └──────────────────┘
-```
+| Action   | Trigger Example              | What Happens on Confirm                        |
+|----------|------------------------------|------------------------------------------------|
+| `add`    | "Show US tech stocks"        | `applyAiFilters()` — merges into `aiFilters`   |
+| `remove` | "Remove the country filter"  | `removeAiFilters()` — subtracts from `aiFilters`|
+| `clear`  | "Clear all filters"          | `clearAllFilters()` — resets chips + aiFilters  |
+| `none`   | "What is a P/E ratio?"       | No filter buttons shown, just a text reply      |
 
 ---
 
@@ -147,23 +206,23 @@
 
 | Component | Role | Props In | Events Out |
 |-----------|------|----------|------------|
-| **App.vue** | Root orchestrator. Owns stock state via `useStocks()`, fetches on mount, wires all children. | — | — |
+| **App.vue** | Root orchestrator. Owns stock state via `useStocks()`, fetches on mount, restores persisted filters, wires all children. | — | — |
 | **TopBar** | App header with logo, title, navigation buttons. | — | — |
-| **FilterBar** | Expandable panel with autocomplete search input containing inline tag chips. Computes suggestions from all stock fields. | `stocks`, `filterChips`, `resultCount` | `update:filterChips` |
-| **ScatterChart** | Chart.js scatter plot: Market Cap (x) vs P/E Ratio (y), color-coded by sector. | `stocks` (filtered) | — |
-| **StockTable** | Sortable, paginated data table. Sorts client-side; only renders the current page (10/50/100 rows). | `stocks` (filtered), `isLoading`, `error` | — |
-| **AiChat** | Sidebar chat panel with full message history, input, and send button. | — | — |
+| **FilterBar** | Expandable panel (max 50% sidebar height) with autocomplete search input containing inline tag chips. Shows merged manual + AI chips. Scrollable when many chips. | `stocks`, `filterChips`, `resultCount` | `update:filterChips` |
+| **ScatterChart** | amcharts5 scatter plot: 1Y Volatility (x) vs 1Y Return (y), color-coded by industry, logarithmic x-axis. | `stocks` (filtered) | — |
+| **StockTable** | AG Grid data table with sortable columns and pagination (10/50/100 rows). Optimised for 40k+ rows. | `stocks` (filtered), `isLoading`, `error`, `pinnedCodes` | `toggle-pin` |
+| **AiChat** | Sidebar chat panel with persistent message history, filter chip previews, confirm/dismiss workflow, keyboard shortcuts, and clear-chat button. | — | `apply-filters`, `remove-filters`, `clear-filters` |
 
 ### Component Tree
 
 ```
 App.vue
  ├── TopBar
- ├── [chart-chat-row]                    ← flex row (70/30 split)
+ ├── [chart-chat-row]                    ← flex row (70/30 split, 420px height)
  │    ├── ScatterChart                   ← receives filteredStocks
- │    └── [chat-section]                 ← flex column
- │         ├── FilterBar                 ← receives stocks + filterChips
- │         └── AiChat                    ← independent, uses useChat()
+ │    └── [sidebar-section]              ← flex column, overflow: hidden
+ │         ├── FilterBar                 ← max 50% height, scrollable body
+ │         └── AiChat                    ← flex: 1, shrinks when filters expand
  └── [content]
       └── StockTable                     ← receives filteredStocks
 ```
@@ -174,48 +233,96 @@ App.vue
 
 ### `useStocks()`
 
-Centralised stock data and filtering logic. Called once in `App.vue`.
+Centralised stock data, filtering, and persistence logic. Called once in `App.vue`.
 
 ```
-┌─────────────────────────────────────────────────────┐
-│ useStocks()                                          │
-│                                                      │
-│  ┌──────────┐    ┌──────────────┐                   │
-│  │ stocks   │    │ filterChips  │                   │
-│  │ ref<[]>  │    │ ref<[]>      │                   │
-│  └────┬─────┘    └──────┬───────┘                   │
-│       │                 │                            │
-│       └────────┬────────┘                            │
-│                ▼                                     │
-│  ┌───────────────────────┐                           │
-│  │ filteredStocks        │  (computed)               │
-│  │  • group chips by cat │                           │
-│  │  • OR within category │                           │
-│  │  • AND across cats    │                           │
-│  └───────────────────────┘                           │
-│                                                      │
-│  fetchStocks() → GET /api/stocks → stocks.value      │
-│  isLoading, error                                    │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ useStocks()                                               │
+│                                                           │
+│  ┌──────────┐  ┌──────────────┐  ┌───────────────────┐  │
+│  │ stocks   │  │ filterChips  │  │ aiFilters         │  │
+│  │ ref<[]>  │  │ ref<[]>      │  │ ref<Filters|null> │  │
+│  └────┬─────┘  └──────┬───────┘  └────────┬──────────┘  │
+│       │               │                   │              │
+│       └───────────────┼───────────────────┘              │
+│                       ▼                                   │
+│  ┌──────────────────────────────────────┐                │
+│  │ filteredStocks (computed)             │                │
+│  │  1. chip groups: OR within, AND across│                │
+│  │  2. AI filters: categorical + numeric │                │
+│  └──────────────────────────────────────┘                │
+│                                                           │
+│  fetchStocks()      → GET /api/stocks → stocks.value     │
+│  applyAiFilters()   → merge incoming into aiFilters      │
+│  removeAiFilters()  → subtract matching from aiFilters   │
+│  clearAllFilters()  → reset filterChips + aiFilters      │
+│  restoreFilters()   → load aiFilters from localStorage   │
+│  _persistFilters()  → save aiFilters to localStorage     │
+│                       (key: "stock-universe-filters")    │
+│                                                           │
+│  aiFiltersToChips() → convert UniverseFilters to chips   │
+│  isLoading, error, pinnedCodes, pinnedStocks             │
+└──────────────────────────────────────────────────────────┘
 ```
 
-### `useChat()`
+### `useChat(onFilterAction)`
 
-Independent chat state. Called inside `AiChat.vue`.
+Chat state with localStorage persistence and confirmation workflow. Called inside `AiChat.vue`.
 
 ```
-┌─────────────────────────────────────────┐
-│ useChat()                                │
-│                                          │
-│  messages: ref<ChatMessage[]>            │
-│  isSending: ref<boolean>                 │
-│                                          │
-│  sendMessage(text)                       │
-│    → push { role: "user", content }      │
-│    → POST /api/chat                      │
-│    → push { role: "assistant", content } │
-└─────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ useChat(onFilterAction)                                   │
+│                                                           │
+│  messages: ref<ChatMessage[]>                            │
+│    ← loaded from localStorage on init                    │
+│    → persisted on every mutation                         │
+│    (key: "stock-universe-chat")                          │
+│                                                           │
+│  isSending: ref<boolean>                                 │
+│                                                           │
+│  sendMessage(text)                                       │
+│    → push user msg                                       │
+│    → POST /api/chat { messages: full history }           │
+│    → push assistant msg with:                            │
+│        pendingFilters, action, filterStatus="pending"    │
+│                                                           │
+│  confirmFilters(index)                                   │
+│    → set filterStatus = "applied"                        │
+│    → call onFilterAction(action, filters)                │
+│                                                           │
+│  dismissFilters(index)                                   │
+│    → set filterStatus = "dismissed"                      │
+│                                                           │
+│  clearMessages()                                         │
+│    → wipe messages ref + localStorage                    │
+└──────────────────────────────────────────────────────────┘
 ```
+
+### `ChatMessage` Interface
+
+```typescript
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  pendingFilters?: UniverseFilters | null;   // filters the AI wants to apply/remove
+  action?: "add" | "remove" | "clear" | "none";
+  filterStatus?: "pending" | "applied" | "dismissed";
+}
+```
+
+---
+
+## Keyboard Shortcuts (AiChat)
+
+| Key     | Condition                     | Action                              |
+|---------|-------------------------------|-------------------------------------|
+| `Enter` | Input has text                | Send message                        |
+| `Enter` | Input empty + pending suggestion | Accept (apply) the suggestion    |
+| `Esc`   | Input empty + pending suggestion | Dismiss the suggestion            |
+
+- The last pending suggestion is **highlighted** with a green glow when the input is empty
+- Highlight disappears when the user starts typing
+- Input placeholder changes to "Enter to apply · Esc to dismiss" when a suggestion is pending
 
 ---
 
@@ -225,81 +332,130 @@ Independent chat state. Called inside `AiChat.vue`.
 
 ```
 main.py
- ├── CORSMiddleware (allow localhost:5173)
+ ├── CORSMiddleware (allow localhost origins)
  ├── GET  /api/health → { status: "ok" }
  ├── routers/stocks.py
- │    └── GET /api/stocks → load stocks.json → filter → list[Stock]
+ │    └── GET /api/stocks
+ │         → load universe_master.json (cached in memory)
+ │         → list[Stock] (snake_case via response_model_by_alias=False)
  └── routers/chat.py
-      └── POST /api/chat → agent.process_message() → ChatResponse
+      └── POST /api/chat
+           → accept { messages: [{role, content}, ...] }
+           → agent.process_message(messages)
+           → ChatResponse { reply, action, filters }
 ```
 
 ### Pydantic Schemas
 
 ```
-┌────────────────────────────────────┐
-│ Stock                              │
-│  ticker: str                       │
-│  name: str                         │
-│  sector: str                       │
-│  price: float                      │
-│  market_cap: float                 │
-│  pe_ratio: float | None            │
-│  dividend_yield: float | None      │
-│  volume: int                       │
-└────────────────────────────────────┘
+┌────────────────────────────────────────┐
+│ Stock                                  │
+│  code, name, ticker, currency          │
+│  country, industry, sub_industry       │
+│  exchange, ric, isin                   │
+│  price, market_cap, pe_ratio, pb_ratio │
+│  dividend_yield, eps, roe, turnover    │
+│  return_1m/3m/6m/1y/ytd               │
+│  volatility_1y, sharpe_1y,            │
+│  max_drawdown_1y                       │
+└────────────────────────────────────────┘
 
-┌─────────────────┐  ┌──────────────────┐
-│ ChatRequest     │  │ ChatResponse     │
-│  message: str   │  │  reply: str      │
-└─────────────────┘  └──────────────────┘
+┌──────────────────────┐   ┌──────────────────────────────┐
+│ ChatRequest          │   │ ChatResponse                 │
+│  messages: list[     │   │  reply: str                  │
+│    {role, content}   │   │  action: str                 │
+│  ]                   │   │    ("add"|"remove"|"clear"|  │
+│                      │   │     "none")                  │
+└──────────────────────┘   │  filters: UniverseFilters?   │
+                           └──────────────────────────────┘
+
+┌────────────────────────────────────────┐
+│ UniverseFilters                        │
+│  countries, industries,                │
+│  sub_industries, currencies, exchanges │
+│  search                               │
+│  price, market_cap, pe_ratio, ...      │  ← NumericRange {min, max}
+│  return_1m, ..., volatility_1y, ...    │
+└────────────────────────────────────────┘
 ```
+
+### AI Agent (agent.py)
+
+- Uses **DeepSeek API** (OpenAI-compatible client) with `DEEPSEEK_API_KEY` from `.env`
+- **JSON-object mode** for reliable structured output
+- System prompt instructs the LLM to return `{ reply, action, filters }`
+- Accepts full conversation history (capped at 20 messages) for context
+- Detects four action types: `add`, `remove`, `clear`, `none`
+- Validates filter output against `UniverseFilters` via Pydantic
 
 ### Data Source
 
-`backend/data/stocks.json` — static JSON array of stock objects. Loaded on each request (suitable for the current dataset; for 40k+ rows, consider loading once at startup or using a database).
+`universe_master.json` — 40k+ stock records loaded from the project root. Cached in memory (`_stocks_cache`) on first request for fast subsequent access.
+
+---
+
+## Persistence (localStorage)
+
+| Key                      | Contents                        | Managed By     |
+|--------------------------|---------------------------------|----------------|
+| `stock-universe-chat`    | Full chat message history (including pendingFilters, action, filterStatus) | `useChat.ts` |
+| `stock-universe-filters` | Current `aiFilters` object      | `useStocks.ts` |
+
+- Chat history survives page reloads; cleared via the trash icon button
+- AI filters are restored on mount via `restoreFilters()`
+- Both are wiped when the user clicks "clear chat" (which also emits `clear-filters`)
 
 ---
 
 ## Filter Chip System
 
-### Type
+### Types
 
 ```typescript
 interface FilterChip {
-  category: string;   // "Sector", "Ticker", "Name", "Price", etc.
-  value: string;      // "Technology", "AAPL", "$178.72", etc.
+  category: string;   // "Country", "Industry", "Price", etc.
+  value: string;      // "United States", "≤ 50", etc.
+}
+
+interface UniverseFilters {
+  countries?: string[];         // categorical
+  industries?: string[];
+  sub_industries?: string[];
+  currencies?: string[];
+  exchanges?: string[];
+  search?: string;              // text search
+  price?: NumericRange;         // { min, max }
+  market_cap?: NumericRange;
+  pe_ratio?: NumericRange;
+  // ... 15+ numeric range fields
 }
 ```
-
-### Category → Stock Field Mapping
-
-| Category   | Stock Field      | Format             | Example Value |
-|------------|------------------|--------------------|---------------|
-| Sector     | `sector`         | raw string         | Technology    |
-| Ticker     | `ticker`         | raw string         | AAPL          |
-| Name       | `name`           | raw string         | Apple Inc.    |
-| Price      | `price`          | `.toFixed(2)`      | 178.72        |
-| Market Cap | `market_cap`     | `$2.8T` / `$150B`  | $2.8T         |
-| P/E        | `pe_ratio`       | `.toFixed(1)`      | 28.5          |
-| Div Yield  | `dividend_yield` | `.toFixed(2)%`     | 0.55%         |
-| Volume     | `volume`         | `45.2M` / `1.2K`   | 45.2M         |
 
 ### Filtering Logic
 
 ```
-chips = [
-  { category: "Sector", value: "Technology" },
-  { category: "Sector", value: "Financials" },
-  { category: "Price",  value: "178.72" }
-]
+Manual chips (FilterBar):
+  Group by category → OR within category, AND across categories
 
-→ Group by category:
-  Sector: ["Technology", "Financials"]   ← OR (match either)
-  Price:  ["178.72"]                     ← AND with above
+AI filters (UniverseFilters):
+  Categorical: array membership check
+  Numeric: range bounds (min/max)
+  Text: substring match on code/name
 
-→ Result: stocks where
-     (sector = "Technology" OR sector = "Financials")
-  AND price = 178.72
+Combined: stocks must pass BOTH manual chips AND AI filters
+```
+
+### Filter Merge / Subtract (AI)
+
+```
+applyAiFilters(incoming):
+  Categorical → union (deduplicated)
+  Numeric     → overwrite with incoming range
+  
+removeAiFilters(toRemove):
+  Categorical → set difference
+  Numeric     → clear the range
+  If nothing remains → aiFilters = null
 ```
 
 ---
@@ -308,11 +464,13 @@ chips = [
 
 | Concern | Strategy |
 |---------|----------|
-| **40k rows in table** | Only the current page (10/50/100 rows) is rendered to the DOM. Sorting uses native `Array.sort()` on the filtered set via a Vue `computed`. |
-| **Sorting speed** | `computed` caches until data or sort state changes. `Array.sort()` on 40k items is ~5–10ms in modern browsers. |
-| **Filter recomputation** | `filteredStocks` is a `computed` — only recalculates when `stocks` or `filterChips` change. Single pass through the array. |
-| **Autocomplete suggestions** | Capped at 25 results to keep the dropdown responsive. |
-| **Chart re-renders** | Chart.js receives the filtered dataset; only re-renders when `filteredStocks` changes. |
+| **40k rows in table** | AG Grid with client-side row model. Only visible rows rendered to DOM. Pagination (10/50/100). |
+| **Sorting speed** | AG Grid handles sorting internally. `computed` caches filtered data. |
+| **Filter recomputation** | `filteredStocks` is a `computed` — single pass through array, only recalculates on change. |
+| **Large JSON load** | Backend caches `universe_master.json` in memory after first load (`_stocks_cache`). |
+| **Autocomplete suggestions** | Capped at 25 results. Category index computed once from all stocks. |
+| **Chart re-renders** | amcharts5 receives filtered dataset; re-renders only on data change. |
+| **Chat history** | localStorage-based. History sent to DeepSeek capped at 20 messages. |
 
 ---
 
@@ -322,9 +480,14 @@ chips = [
 |-------|-----------|---------|
 | Frontend framework | Vue 3 (Composition API) | Reactive UI components |
 | Build tool | Vite | Fast dev server with HMR, API proxy |
-| Charts | Chart.js + vue-chartjs | Scatter plot visualisation |
+| Charts | amcharts5 | Scatter plot with industry grouping |
+| Data table | AG Grid | Sortable, paginated stock table |
+| Styling | SCSS + Bootstrap (overrides) | Layout and component styles |
+| Icons | FontAwesome | UI icons |
 | Language | TypeScript | Type safety across frontend |
 | Backend framework | FastAPI | High-performance async API |
 | Validation | Pydantic v2 | Request/response schema validation |
+| AI/LLM | DeepSeek (via OpenAI client) | Natural-language filter extraction |
 | Server | Uvicorn | ASGI server with hot reload |
-| Data | Static JSON | Stock universe dataset |
+| Data | Static JSON (40k records) | Stock universe dataset |
+| Persistence | localStorage | Chat history + AI filter state |
