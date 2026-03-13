@@ -6,7 +6,7 @@ const NAVY = "#0a1628";
 const INITIAL_POINTS = 2000;
 const BULLET_DURATION_MS = 1000;
 const WARP_DURATION_MS = 2000;
-const WARP_STREAK_COUNT = 600;
+const WARP_STREAK_COUNT = 1200;
 const LOGO_ZOOM_MS = 1500;
 
 const LOGO_W = 365.2;
@@ -114,12 +114,19 @@ function startWarp(): void {
   const cy = vh.value / 2;
   const maxDist = Math.sqrt(cx * cx + cy * cy) * 2.5;
 
-  streaks.selectAll("line").each(function () {
-    const el = d3.select(this as SVGLineElement);
-    const px = +el.attr("x1");
-    const py = +el.attr("y1");
-    warpElement(el, px, py, cx, cy, maxDist, 2800);
-  });
+  const existingLines = streaks.selectAll("line").nodes() as SVGLineElement[];
+  const staggerDuration = WARP_DURATION_MS * 0.6;
+  const staggerInterval = existingLines.length > 0 ? staggerDuration / existingLines.length : 0;
+
+  for (let i = 0; i < existingLines.length; i++) {
+    const tid = setTimeout(() => {
+      const el = d3.select(existingLines[i]);
+      const px = +el.attr("x1");
+      const py = +el.attr("y1");
+      warpElement(el, px, py, cx, cy, maxDist, 1800);
+    }, i * staggerInterval);
+    timeoutIds.push(tid);
+  }
 
   const interval = WARP_DURATION_MS / WARP_STREAK_COUNT;
   for (let i = 0; i < WARP_STREAK_COUNT; i++) {
