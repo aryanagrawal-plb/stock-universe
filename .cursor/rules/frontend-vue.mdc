@@ -1,0 +1,48 @@
+---
+description: Frontend Vue 3 + TypeScript conventions
+globs: frontend/src/**/*.{vue,ts}
+alwaysApply: false
+---
+
+# Frontend Vue Rules
+
+## Stack
+
+- Vue 3 Composition API with `<script setup lang="ts">`
+- TypeScript strict mode
+- Vite dev server with `/api` proxy to backend `:8000`
+- amCharts 5 for scatter charts
+- AG Grid Enterprise for data tables
+- Bootstrap 4 + custom SCSS for styling
+
+## Component Structure
+
+| Component      | Purpose                                         |
+|----------------|------------------------------------------------|
+| `App.vue`      | Root — owns `useStocks()`, fetches on mount    |
+| `TopBar.vue`   | Header with logo                                |
+| `FilterBar.vue`| Autocomplete tag-chip filter bar               |
+| `ScatterChart.vue` | amCharts scatter (Market Cap vs P/E)       |
+| `StockTable.vue`   | AG Grid sortable/paginated table           |
+| `AiChat.vue`   | Chat sidebar, uses `useChat()`                 |
+
+## Composables
+
+- `useStocks()` — called once in `App.vue`. Exposes `stocks`, `filterChips`, `filteredStocks` (computed), `fetchStocks()`.
+- `useChat()` — called in `AiChat.vue`. Exposes `messages`, `isSending`, `sendMessage()`.
+
+## Types (`types/stock.ts`)
+
+- `Stock` interface mirrors the backend `Stock` Pydantic model (snake_case field names).
+- `FilterChip` = `{ category: string, value: string }`.
+- `ChatMessage` = `{ role: "user" | "assistant", content: string }`.
+
+## Filter Logic
+
+- Chips grouped by category: **OR** within the same category, **AND** across categories.
+- Filtering is done client-side in `useStocks.filteredStocks` computed property.
+
+## Important
+
+- The `/api/chat` response includes a `filters` object (`UniverseFilters` schema) alongside `reply`. When connecting chat to filters, read `data.filters` from the response.
+- Do NOT import from `node_modules` paths directly — use package names.

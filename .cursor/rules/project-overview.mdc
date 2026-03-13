@@ -1,0 +1,36 @@
+---
+description: Stock Universe project context — architecture, data, and conventions
+alwaysApply: true
+---
+
+# Stock Universe — Project Context
+
+## What This Project Is
+
+A stock universe explorer where an AI chat assistant converts natural language into structured filters (`UniverseFilters`), which are applied to 7,623 stocks displayed in a scatter chart (amCharts 5) and sortable table (AG Grid).
+
+## Architecture
+
+- **Backend**: Python 3.11+ / FastAPI / Pydantic v2, runs on `:8000`
+- **Frontend**: Vue 3 Composition API / TypeScript / Vite, runs on `:5173` (proxies `/api` to backend)
+- **LLM**: DeepSeek Chat (OpenAI-compatible SDK), configured via `DEEPSEEK_API_KEY` in `backend/.env`
+- **Data**: `data/universe_master.json` — 7,623 stocks with ~100 fields (fundamentals, returns, risk metrics across multiple time horizons)
+
+## Key Data Flow
+
+1. `GET /api/stocks` → returns all stocks from `universe_master.json` (cached in memory)
+2. `POST /api/chat` → sends user message to DeepSeek → returns `{ reply, filters }` where `filters` is a `UniverseFilters` object
+3. Frontend applies filters client-side using chip-based filtering (OR within category, AND across categories)
+
+## Important Models
+
+- `Stock` in `backend/models/schemas.py` uses **field aliases** (e.g., `Field(alias="Market_Cap")`) to map from the JSON source. It also has `model_config = {"populate_by_name": True}`.
+- `UniverseFilters` has categorical fields (`list[str] | None`) and numeric fields (`NumericRange | None` with `min`/`max`).
+- The `ChatResponse` includes both a `reply` string and an optional `filters: UniverseFilters` object.
+
+## Conventions
+
+- Backend tests use **pytest** with mocked LLM calls (no API key needed). Tests live in `backend/tests/`.
+- Use `uv` for Python dependency management. Dependencies are in `backend/pyproject.toml`.
+- Frontend uses `npm`. Dependencies are in `frontend/package.json`.
+- Ruff is used for Python linting with `line-length = 100`.

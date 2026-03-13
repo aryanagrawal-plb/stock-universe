@@ -1,0 +1,43 @@
+---
+description: Backend Python conventions — FastAPI, Pydantic, agent service
+globs: backend/**/*.py
+alwaysApply: false
+---
+
+# Backend Python Rules
+
+## Project Layout
+
+```
+backend/
+├── main.py          # FastAPI app, CORS, router mounts
+├── routers/         # One file per API route group (stocks.py, chat.py)
+├── services/        # Business logic (agent.py — LLM integration)
+├── models/          # Pydantic schemas (schemas.py)
+└── tests/           # pytest tests (mock LLM calls, no real API key needed)
+```
+
+## Key Patterns
+
+- **Routers** are thin — they call service functions and return Pydantic models.
+- **`agent.py`** uses `AsyncOpenAI` pointed at DeepSeek (`base_url="https://api.deepseek.com"`). The client is lazily initialised via `_get_client()`.
+- The LLM is called with `response_format={"type": "json_object"}` and a detailed system prompt in `SYSTEM_PROMPT` that lists all valid categorical values.
+- `_strip_nulls()` removes null keys from the LLM JSON before Pydantic validation.
+- `process_message()` returns a `tuple[str, UniverseFilters | None]` — the router unpacks it.
+
+## Stock Model Aliases
+
+The `Stock` model maps JSON keys from `universe_master.json` using Pydantic aliases:
+- `Market_Cap` → `market_cap`, `Pe_Ratio` → `pe_ratio`, `Sub-Industry` → `sub_industry`, etc.
+- Text fields use `StrOrEmpty` (a `BeforeValidator` that coerces `None` to `""`).
+- The router uses `response_model_by_alias=False` so the API returns snake_case keys.
+
+## Testing
+
+- Tests mock `_get_client()` to avoid real API calls.
+- Use `pytest-asyncio` for async tests, `pytest-mock` for mocking.
+- Always add `TYPE_CHECKING` imports for pytest fixture types.
+
+## Dependencies
+
+Managed via `pyproject.toml` with `uv`. Key deps: `fastapi`, `pydantic>=2.0`, `openai`, `python-dotenv`.
