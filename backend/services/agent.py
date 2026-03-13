@@ -55,13 +55,21 @@ natural-language request and produce a JSON object with exactly three keys:
 
   {
     "reply":   "<short conversational message to the user>",
-    "action":  "<one of: add, remove, clear, none>",
+    "action":  "<one of: set, add, remove, clear, none>",
     "filters": { ... UniverseFilters ... }
   }
 
 ### Action rules
 
-- **add**    – the user wants to ADD or SET filters.  Populate "filters".
+- **set**    – the user wants to REPLACE the current filters with a new set.
+               Use this when the user describes the complete desired state
+               (e.g. "show only India energy", "switch to Japan tech",
+               "I want US healthcare stocks").  The previous filters will be
+               discarded and replaced by the ones you provide.
+- **add**    – the user wants to ADD filters ON TOP of what is already active.
+               Use this when they say "also", "additionally", "include",
+               or just ask for something without implying the old filters
+               should be removed.
 - **remove** – the user wants to REMOVE specific active filters.  Populate
                "filters" with the fields to remove (e.g. to remove the
                country filter, set "countries": ["United States"]).
@@ -69,10 +77,18 @@ natural-language request and produce a JSON object with exactly three keys:
 - **none**   – the user is asking a general question, chatting, or the
                request doesn't map to any filter change.  Set "filters" to {}.
 
+### How to choose between "set" and "add"
+
+- "Show me India energy stocks" after a previous filter → **set** (replaces)
+- "Show only X" / "Switch to X" / "I want X" → **set** (replaces)
+- "Also show Japan" / "Add technology" → **add** (merges)
+- If unsure whether the user wants to replace or add, default to **set**.
+
 ### Reply guidelines
 
 - Keep replies short (1-3 sentences).
-- When action is "add", summarise what you're suggesting to add.
+- When action is "set", say what the new filters will be.
+- When action is "add", say what you're adding to the existing filters.
 - When action is "remove", summarise what you're suggesting to remove.
 - When action is "clear", confirm that all filters will be cleared.
 - When action is "none", answer the user's question helpfully.
@@ -152,11 +168,13 @@ symbol or company name (e.g. "Apple", "AAPL").
 ### Filter rules
 - Only set filter fields the user explicitly or implicitly requested.
 - Leave every other filter field out of the JSON (do NOT set them to null).
-- "tech stocks" → action: "add", industries: ["Technology"]
-- "cheap stocks" → action: "add", price: {"max": 20}
-- "high dividend" → action: "add", dividend_yield: {"min": 3}
-- "large cap" → action: "add", market_cap: {"min": 10000}
-- "small cap" → action: "add", market_cap: {"max": 2000}
+- "show me tech stocks" → action: "set", industries: ["Technology"]
+- "show India and China energy" → action: "set", countries: ["India","China"], industries: ["Energy"]
+- "show only India energy" (after above) → action: "set", countries: ["India"], industries: ["Energy"]
+- "also add Japan" → action: "add", countries: ["Japan"]
+- "cheap stocks" → action: "set", price: {"max": 20}
+- "high dividend" → action: "set", dividend_yield: {"min": 3}
+- "large cap" → action: "set", market_cap: {"min": 10000}
 - "remove country filter" → action: "remove", countries: [<whatever was set>]
 - "clear all filters" → action: "clear"
 - "hello" / general question → action: "none"
@@ -220,7 +238,7 @@ async def _call_llm(
 
     reply = data.get("reply", "")
     action = data.get("action", "none")
-    if action not in ("add", "remove", "clear", "none"):
+    if action not in ("set", "add", "remove", "clear", "none"):
         action = "none"
 
     raw_filters = data.get("filters", {})
@@ -230,7 +248,7 @@ async def _call_llm(
     cleaned = _strip_nulls(raw_filters)
     filters: UniverseFilters | None = None
 
-    if action in ("add", "remove") and cleaned:
+    if action in ("set", "add", "remove") and cleaned:
         try:
             filters = UniverseFilters.model_validate(cleaned)
         except ValidationError as exc:

@@ -285,6 +285,12 @@ export function useStocks() {
     }
   }
 
+  function setAiFilters(filters: UniverseFilters): void {
+    filterChips.value = [];
+    aiFilters.value = { ...filters };
+    _persistFilters();
+  }
+
   function applyAiFilters(filters: UniverseFilters): void {
     filterChips.value = [];
     aiFilters.value = mergeFilters(aiFilters.value, filters);
@@ -356,6 +362,7 @@ export function useStocks() {
     pinnedCodes,
     togglePin,
     pinnedStocks,
+    setAiFilters,
     applyAiFilters,
     removeAiFilters,
     clearAiFilters,

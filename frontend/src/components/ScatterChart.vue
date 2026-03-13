@@ -12,21 +12,67 @@ const emit = defineEmits<{
   "update:universe": [value: string];
 }>();
 
-const INDUSTRY_COLORS: Record<string, string> = {
-  "Technology": "#6c5ce7",
-  "Financials": "#00cec9",
-  "Healthcare": "#ff6b6b",
-  "Energy": "#ffa502",
-  "Consumer Discretionary": "#a29bfe",
-  "Consumer Staples": "#51cf66",
-  "Industrials": "#fd79a8",
-  "Materials": "#e17055",
-  "Real Estate": "#74b9ff",
-  "Utilities": "#55efc4",
-  "Telecommunications": "#636e72",
-  "Energy - Fossil Fuels": "#f39c12",
-  "Energy - Renewable Energy": "#2ecc71",
-};
+interface GroupOption {
+  label: string;
+  field: string;
+  tooltip: string;
+}
+
+const GROUP_OPTIONS: GroupOption[] = [
+  { label: "Industry",     field: "industry",     tooltip: "Primary sector classification" },
+  { label: "Country",      field: "country",       tooltip: "Country where the stock is listed" },
+  { label: "Exchange",     field: "exchange",      tooltip: "Stock exchange" },
+  { label: "Currency",     field: "currency",      tooltip: "Trading currency" },
+  { label: "Sub-Industry", field: "sub_industry",  tooltip: "Sub-sector classification" },
+];
+
+const selectedGroup = ref<GroupOption>(GROUP_OPTIONS[0]);
+const showGroupDropdown = ref(false);
+
+const PALETTE = [
+  "#6c5ce7", "#00cec9", "#ff6b6b", "#ffa502", "#a29bfe",
+  "#51cf66", "#fd79a8", "#e17055", "#74b9ff", "#55efc4",
+  "#636e72", "#f39c12", "#2ecc71", "#e84393", "#0984e3",
+  "#d63031", "#00b894", "#fdcb6e", "#6c5ce7", "#b2bec3",
+  "#fab1a0", "#81ecec", "#dfe6e9", "#ffeaa7", "#ff7675",
+];
+
+const colorMap = computed(() => {
+  const map = new Map<string, string>();
+  const values = activeGroupValues.value;
+  for (let i = 0; i < values.length; i++) {
+    map.set(values[i], PALETTE[i % PALETTE.length]);
+  }
+  return map;
+});
+
+function colorFor(value: string): string {
+  return colorMap.value.get(value) ?? "#8b8fa3";
+}
+
+function getGroupValue(stock: Stock): string {
+  return ((stock as unknown as Record<string, unknown>)[selectedGroup.value.field] as string) ?? "";
+}
+
+interface PeriodOption {
+  label: string;
+  volField: keyof Stock;
+  retField: keyof Stock;
+  xLabel: string;
+  yLabel: string;
+}
+
+const PERIOD_OPTIONS: PeriodOption[] = [
+  { label: "1M",  volField: "volatility_1m",  retField: "return_1m",  xLabel: "1M Volatility",  yLabel: "1M Return" },
+  { label: "3M",  volField: "volatility_3m",  retField: "return_3m",  xLabel: "3M Volatility",  yLabel: "3M Return" },
+  { label: "6M",  volField: "volatility_6m",  retField: "return_6m",  xLabel: "6M Volatility",  yLabel: "6M Return" },
+  { label: "1Y",  volField: "volatility_1y",  retField: "return_1y",  xLabel: "1Y Volatility",  yLabel: "1Y Return" },
+  { label: "3Y",  volField: "volatility_3y",  retField: "return_3y",  xLabel: "3Y Volatility",  yLabel: "3Y Return" },
+  { label: "5Y",  volField: "volatility_5y",  retField: "return_5y",  xLabel: "5Y Volatility",  yLabel: "5Y Return" },
+  { label: "YTD", volField: "volatility_ytd", retField: "return_ytd", xLabel: "YTD Volatility", yLabel: "YTD Return" },
+];
+
+const selectedPeriod = ref<PeriodOption>(PERIOD_OPTIONS[3]);
 
 const containerRef = ref<HTMLDivElement | null>(null);
 const svgRef = ref<SVGSVGElement | null>(null);
@@ -45,8 +91,8 @@ const hoveredStock = ref<{
 
 const currentTransform = ref<d3.ZoomTransform>(d3.zoomIdentity);
 const isTourActive = ref(false);
-const currentTourIndustry = ref<string | null>(null);
-const tourFilterIndustry = ref<string | null>(null);
+const currentTourLabel = ref<string | null>(null);
+const tourFilterValue = ref<string | null>(null);
 
 const UNIVERSE_OPTIONS = [
   "All",
@@ -117,28 +163,44 @@ function closeUniverseMenuOnClickOutside(e: MouseEvent): void {
   }
 }
 
+const volField = computed(() => selectedPeriod.value.volField);
+const retField = computed(() => selectedPeriod.value.retField);
+
+function stockVal(s: Stock, field: string): unknown {
+  return (s as unknown as Record<string, unknown>)[field];
+}
+
 const validStocks = computed(() => {
+  const vf = volField.value;
+  const rf = retField.value;
   const withData = props.stocks.filter(
     (s) =>
-      s.volatility_1y != null &&
-      s.return_1y != null &&
-      typeof s.volatility_1y === "number" &&
-      typeof s.return_1y === "number"
+      stockVal(s, vf) != null &&
+      stockVal(s, rf) != null &&
+      typeof stockVal(s, vf) === "number" &&
+      typeof stockVal(s, rf) === "number"
   );
-  const vols = withData.map((s) => s.volatility_1y as number).sort(d3.ascending);
+  const vols = withData.map((s) => stockVal(s, vf) as number).sort(d3.ascending);
   const p95 = d3.quantile(vols, 0.95) ?? Infinity;
-  return withData.filter((s) => (s.volatility_1y as number) <= p95);
+  return withData.filter((s) => (stockVal(s, vf) as number) <= p95);
 });
 
 function stockOpacity(stock: Stock): number {
-  if (tourFilterIndustry.value == null) return 0.85;
-  return (stock.industry ?? "") === tourFilterIndustry.value ? 0.85 : 0.04;
+  if (tourFilterValue.value == null) return 0.85;
+  return getGroupValue(stock) === tourFilterValue.value ? 0.85 : 0.04;
+}
+
+function getVol(s: Stock): number {
+  return (s as unknown as Record<string, number>)[volField.value];
+}
+function getRet(s: Stock): number {
+  return (s as unknown as Record<string, number>)[retField.value];
 }
 
 const xScale = computed(() =>
   d3
     .scaleLinear()
-    .domain(d3.extent(validStocks.value, (s) => s.volatility_1y as number) as [number, number])
+    .domain(d3.extent(validStocks.value, getVol) as [number, number])
     .nice()
     .range([margin.left, width.value - margin.right])
 );
@@ -179,18 +241,27 @@ function renderAxes(): void {
 
 watchEffect(renderAxes);
 
-const tourStops = computed(() => {
-  const stops: Array<{ industry: string; transform: d3.ZoomTransform }> = [];
+const activeGroupValues = computed(() => {
+  const set = new Set<string>();
+  for (const s of validStocks.value) {
+    const v = getGroupValue(s);
+    if (v) set.add(v);
+  }
+  return [...set].sort();
+});
 
-  const byIndustry = d3.group(validStocks.value, (s) => s.industry);
+const tourStops = computed(() => {
+  const stops: Array<{ label: string; transform: d3.ZoomTransform }> = [];
+
+  const byGroup = d3.group(validStocks.value, getGroupValue);
   const plotW = width.value - margin.left - margin.right;
   const plotH = height.value - margin.top - margin.bottom;
 
-  for (const [industry, stocks] of byIndustry) {
-    if (stocks.length < 2 || !industry) continue;
+  for (const [groupVal, stocks] of byGroup) {
+    if (stocks.length < 2 || !groupVal) continue;
 
-    const xs = stocks.map((s) => xScale.value(s.volatility_1y as number)).sort(d3.ascending);
-    const ys = stocks.map((s) => yScale.value(s.return_1y as number)).sort(d3.ascending);
+    const xs = stocks.map((s) => xScale.value(getVol(s))).sort(d3.ascending);
+    const ys = stocks.map((s) => yScale.value(getRet(s))).sort(d3.ascending);
 
     const trimX0 = d3.quantile(xs, 0.05)!;
     const trimX1 = d3.quantile(xs, 0.95)!;
@@ -209,7 +280,7 @@ const tourStops = computed(() => {
     const midY = margin.top + plotH / 2;
 
     stops.push({
-      industry,
+      label: groupVal,
       transform: d3.zoomIdentity
         .translate(midX, midY)
         .scale(scale)
@@ -232,8 +303,8 @@ function startTour(): void {
     if (!isTourActive.value) return;
 
     const stop = stops[stopIndex];
-    tourFilterIndustry.value = stop.industry;
-    currentTourIndustry.value = stop.industry;
+    tourFilterValue.value = stop.label;
+    currentTourLabel.value = stop.label;
 
     svg
       .transition("tour")
@@ -241,7 +312,11 @@ function startTour(): void {
       .call(zoomBehavior!.transform, stop.transform)
       .on("end", () => {
         if (!isTourActive.value) return;
-        stopIndex = (stopIndex + 1) % stops.length;
+        stopIndex += 1;
+        if (stopIndex >= stops.length) {
+          tourTimeoutId = setTimeout(() => endTour(), 1200);
+          return;
+        }
         tourTimeoutId = setTimeout(goToStop, 500);
       });
   }
@@ -249,10 +324,26 @@ function startTour(): void {
   goToStop();
 }
 
+function endTour(): void {
+  isTourActive.value = false;
+  currentTourLabel.value = null;
+  tourFilterValue.value = null;
+  if (tourTimeoutId != null) {
+    clearTimeout(tourTimeoutId);
+    tourTimeoutId = null;
+  }
+  if (svgRef.value && zoomBehavior) {
+    d3.select(svgRef.value)
+      .transition()
+      .duration(750)
+      .call(zoomBehavior.transform, d3.zoomIdentity);
+  }
+}
+
 function cancelTour(): void {
   isTourActive.value = false;
-  currentTourIndustry.value = null;
-  tourFilterIndustry.value = null;
+  currentTourLabel.value = null;
+  tourFilterValue.value = null;
   if (tourTimeoutId != null) {
     clearTimeout(tourTimeoutId);
     tourTimeoutId = null;
@@ -272,14 +363,16 @@ function resetZoom(): void {
   }
 }
 
-function colorFor(industry: string): string {
-  return INDUSTRY_COLORS[industry] ?? "#8b8fa3";
+function selectGroup(opt: GroupOption): void {
+  cancelTour();
+  selectedGroup.value = opt;
+  showGroupDropdown.value = false;
 }
 
 function onPointEnter(stock: Stock): void {
   if (isTourActive.value) return;
-  const cx = xScale.value(stock.volatility_1y as number);
-  const cy = yScale.value(stock.return_1y as number);
+  const cx = xScale.value(getVol(stock));
+  const cy = yScale.value(getRet(stock));
   hoveredStock.value = { stock, cx, cy };
 }
 
@@ -294,9 +387,10 @@ function selectUniverse(option: (typeof UNIVERSE_OPTIONS)[number]): void {
 }
 
 function tooltipText(stock: Stock): string {
-  const vol = ((stock.volatility_1y as number) * 100).toFixed(1);
-  const ret = ((stock.return_1y as number) * 100).toFixed(1);
-  return `${stock.code}: Vol ${vol}%, Ret ${ret}%`;
+  const vol = (getVol(stock) * 100).toFixed(1);
+  const ret = (getRet(stock) * 100).toFixed(1);
+  const group = getGroupValue(stock);
+  return `${stock.code} (${group}): Vol ${vol}%, Ret ${ret}%`;
 }
 
 const tooltipX = computed(() => {
@@ -323,7 +417,7 @@ const tooltipY = computed(() => {
         <h3 class="scatter-title">
           My Universe
           <span class="universe-selection">{{ displayUniverse }}</span>
-          <span class="universe-chevron">▼</span>
+          <span class="universe-chevron">&#9660;</span>
         </h3>
         <div v-show="isUniverseMenuOpen" class="universe-menu">
           <button
@@ -337,23 +431,62 @@ const tooltipY = computed(() => {
           </button>
         </div>
       </div>
-      <div v-if="displayUniverse === 'Equities'" class="tour-controls">
+
+      <div v-if="displayUniverse === 'Equities'" class="period-selector">
         <button
-          v-if="!isTourActive"
+          v-for="p in PERIOD_OPTIONS"
+          :key="p.label"
+          class="period-btn"
+          :class="{ active: selectedPeriod.label === p.label }"
+          @click="selectedPeriod = p"
+        >
+          {{ p.label }}
+        </button>
+      </div>
+
+      <div class="header-spacer"></div>
+
+      <div class="tour-controls">
+        <div v-if="displayUniverse === 'Equities'" class="group-selector-wrap">
+          <button
+            class="tour-btn"
+            :class="{ 'tour-btn--active': showGroupDropdown }"
+            @click="showGroupDropdown = !showGroupDropdown"
+          >
+            {{ selectedGroup.label }}
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:3px">
+              <polyline :points="showGroupDropdown ? '18 15 12 9 6 15' : '6 9 12 15 18 9'" />
+            </svg>
+          </button>
+          <div v-if="showGroupDropdown" class="group-dropdown shadow">
+            <button
+              v-for="opt in GROUP_OPTIONS"
+              :key="opt.field"
+              class="group-dropdown-item"
+              :class="{ selected: selectedGroup.field === opt.field }"
+              @click="selectGroup(opt)"
+            >
+              <span class="group-dropdown-label">{{ opt.label }}</span>
+              <span class="group-dropdown-hint">{{ opt.tooltip }}</span>
+            </button>
+          </div>
+        </div>
+        <button
+          v-if="displayUniverse === 'Equities' && !isTourActive"
           class="tour-btn"
           @click="startTour"
         >
           Start Tour
         </button>
         <button
-          v-else
+          v-if="displayUniverse === 'Equities' && isTourActive"
           class="tour-btn tour-btn--stop"
           @click="cancelTour"
         >
           Stop Tour
         </button>
         <button
-          v-if="isZoomed && !isTourActive"
+          v-if="displayUniverse === 'Equities' && isZoomed && !isTourActive"
           class="tour-btn"
           @click="resetZoom"
         >
@@ -381,10 +514,10 @@ const tooltipY = computed(() => {
             <circle
               v-for="(stock, i) in validStocks"
               :key="stock.code + '-' + i"
-              :cx="xScale(stock.volatility_1y as number)"
-              :cy="yScale(stock.return_1y as number)"
+              :cx="xScale(getVol(stock))"
+              :cy="yScale(getRet(stock))"
               :r="(hoveredStock?.stock.code === stock.code ? 5.3 : 3.3) / currentTransform.k"
-              :fill="colorFor(stock.industry ?? '')"
+              :fill="colorFor(getGroupValue(stock))"
               :fill-opacity="stockOpacity(stock)"
               stroke="none"
               class="data-point"
@@ -403,7 +536,6 @@ const tooltipY = computed(() => {
           :transform="`translate(${margin.left},0)`"
         />
 
-        <!-- Axis labels -->
         <text
           :x="(margin.left + width - margin.right) / 2"
           :y="height - 8"
@@ -412,7 +544,7 @@ const tooltipY = computed(() => {
           font-size="12"
           font-family="'Fira Sans', sans-serif"
         >
-          1Y Volatility
+          {{ selectedPeriod.xLabel }}
         </text>
         <text
           :x="-(margin.top + height - margin.bottom) / 2"
@@ -423,12 +555,11 @@ const tooltipY = computed(() => {
           font-family="'Fira Sans', sans-serif"
           transform="rotate(-90)"
         >
-          1Y Return
+          {{ selectedPeriod.yLabel }}
         </text>
 
-        <!-- Tour industry label -->
         <text
-          v-if="isTourActive && currentTourIndustry"
+          v-if="isTourActive && currentTourLabel"
           :x="width / 2"
           :y="margin.top + 24"
           text-anchor="middle"
@@ -437,7 +568,7 @@ const tooltipY = computed(() => {
           font-weight="600"
           font-family="'Fira Sans', sans-serif"
         >
-          {{ currentTourIndustry }}
+          {{ currentTourLabel }}
         </text>
 
         <!-- Tooltip -->
@@ -464,23 +595,36 @@ const tooltipY = computed(() => {
     <div v-else class="chart-wrap chart-placeholder">
       <p class="chart-placeholder-text">Not implemented yet</p>
     </div>
+
+    <div class="color-legend">
+      <span
+        v-for="val in activeGroupValues"
+        :key="val"
+        class="legend-item"
+      >
+        <span class="legend-dot" :style="{ background: colorFor(val) }"></span>
+        <span class="legend-label">{{ val }}</span>
+      </span>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .scatter-container {
-  padding: 16px 24px;
+  padding: 12px 20px 6px;
   height: 100%;
   display: flex;
   flex-direction: column;
   background: #fff;
+  overflow: hidden;
 }
 
 .scatter-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 4px;
+  flex-shrink: 0;
 }
 
 .universe-dropdown {
@@ -491,6 +635,61 @@ const tooltipY = computed(() => {
 .scatter-title {
   font-family: 'Fira Sans', sans-serif;
   font-size: 14px;
+  font-weight: 600;
+  color: #495057;
+  flex-shrink: 0;
+}
+
+.header-spacer {
+  flex: 1;
+}
+
+/* Group selector */
+.group-selector-wrap {
+  position: relative;
+}
+
+.tour-btn--active {
+  border-color: #1a85a1;
+  color: #1a85a1;
+  background: rgba(26, 133, 161, 0.06);
+}
+
+.group-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 220px;
+  background: #fff;
+  border: 1px solid #d8dde2;
+  border-radius: 6px;
+  z-index: 300;
+  padding: 4px 0;
+}
+
+.group-dropdown-item {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 7px 14px;
+  font-family: 'Fira Sans', sans-serif;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.group-dropdown-item:hover {
+  background: #f1f3f5;
+}
+
+.group-dropdown-item.selected {
+  background: rgba(26, 133, 161, 0.06);
+}
+
+.group-dropdown-label {
+  font-size: 13px;
   font-weight: 600;
   color: #495057;
   cursor: default;
@@ -547,6 +746,50 @@ const tooltipY = computed(() => {
   background: rgba(26, 133, 161, 0.08);
 }
 
+.group-dropdown-item.selected .group-dropdown-label {
+  color: #1a85a1;
+}
+
+.group-dropdown-hint {
+  font-size: 10px;
+  color: #adb5bd;
+  margin-top: 1px;
+}
+
+/* Period selector */
+.period-selector {
+  display: flex;
+  gap: 2px;
+  background: #f1f3f5;
+  border-radius: 5px;
+  padding: 2px;
+}
+
+.period-btn {
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Fira Sans', sans-serif;
+  color: #6c757d;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.period-btn:hover {
+  color: #495057;
+  background: #e9ecef;
+}
+
+.period-btn.active {
+  color: #fff;
+  background: #1a85a1;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+
+/* Tour controls — right aligned */
 .tour-controls {
   display: flex;
   gap: 6px;
@@ -579,6 +822,7 @@ const tooltipY = computed(() => {
   background: rgba(217, 83, 79, 0.1);
 }
 
+/* Chart area */
 .chart-wrap {
   flex: 1;
   min-height: 350px;
@@ -600,5 +844,38 @@ const tooltipY = computed(() => {
 .data-point {
   cursor: pointer;
   transition: fill-opacity 1s ease;
+}
+
+/* Legend */
+.color-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 6px 4px 4px;
+  flex-shrink: 0;
+  max-height: 52px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #d8dde2 transparent;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-label {
+  font-size: 10px;
+  font-family: 'Fira Sans', sans-serif;
+  color: #6c757d;
+  white-space: nowrap;
 }
 </style>

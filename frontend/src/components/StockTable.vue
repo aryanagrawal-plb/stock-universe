@@ -34,6 +34,28 @@ const emit = defineEmits<{
 const TAB_NAMES = Object.keys(TAB_COLUMNS) as string[];
 const activeTab = ref<string>("Overview");
 
+const ALL_COLUMN_NAMES = Object.keys(DISPLAY_TO_FIELD).filter(
+  (n) => !["Code", "Name", "Ticker"].includes(n)
+);
+
+const showColumnPicker = ref(false);
+const extraColumns = ref<string[]>([]);
+
+function toggleColumn(name: string): void {
+  const idx = extraColumns.value.indexOf(name);
+  if (idx >= 0) {
+    extraColumns.value = extraColumns.value.filter((_, i) => i !== idx);
+  } else {
+    extraColumns.value = [...extraColumns.value, name];
+  }
+}
+
+function isColumnActive(name: string): boolean {
+  const tabCols = TAB_COLUMNS[activeTab.value] ?? [];
+  return tabCols.includes(name) || extraColumns.value.includes(name);
+}
+
+const PAGE_SIZES = [10, 50, 100] as const;
 const pageSize = ref<number>(50);
 let gridApi: GridApi | null = null;
 
@@ -199,6 +221,12 @@ const columnDefs = computed<ColDef[]>(() => {
     defs.push(buildColDef(displayName));
   }
 
+  for (const displayName of extraColumns.value) {
+    if (seen.has(displayName)) continue;
+    seen.add(displayName);
+    defs.push(buildColDef(displayName));
+  }
+
   return defs;
 });
 
@@ -226,6 +254,39 @@ const popupParent =
       >
         {{ tab }}
       </button>
+      <div class="pl-col-picker-wrap">
+        <button
+          class="pl-col-picker-btn"
+          :class="{ active: showColumnPicker }"
+          title="Add/remove columns"
+          @click="showColumnPicker = !showColumnPicker"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+          </svg>
+          <span>Columns</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline :points="showColumnPicker ? '18 15 12 9 6 15' : '6 9 12 15 18 9'" />
+          </svg>
+        </button>
+        <div v-if="showColumnPicker" class="pl-col-picker-panel shadow">
+          <div class="pl-col-picker-scroll">
+            <label
+              v-for="col in ALL_COLUMN_NAMES"
+              :key="col"
+              class="pl-col-option"
+              :class="{ checked: isColumnActive(col) }"
+            >
+              <input
+                type="checkbox"
+                :checked="isColumnActive(col)"
+                @change="toggleColumn(col)"
+              />
+              <span>{{ col }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="grid-wrapper ag-theme-alpine">
@@ -278,7 +339,124 @@ const popupParent =
   color: #495057;
   background: transparent;
   border: 1px solid #d8dde2;
-  border-radius: 0.25rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: #bbc1c7;
+  }
+
+  &.active {
+    color: #fff;
+    background: #1a85a1;
+    border-color: #1a85a1;
+  }
+}
+
+.pl-col-picker-wrap {
+  position: relative;
+  margin-left: auto;
+}
+
+.pl-col-picker-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: 'Fira Sans', sans-serif;
+  color: #495057;
+  background: transparent;
+  border: 1px solid #d8dde2;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover,
+  &.active {
+    border-color: #1a85a1;
+    color: #1a85a1;
+  }
+}
+
+.pl-col-picker-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 240px;
+  background: #fff;
+  border: 1px solid #d8dde2;
+  border-radius: 6px;
+  z-index: 300;
+  padding: 6px 0;
+}
+
+.pl-col-picker-scroll {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 0 4px;
+}
+
+.pl-col-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-family: 'Fira Sans', sans-serif;
+  color: #495057;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.1s;
+
+  &:hover {
+    background: #f1f3f5;
+  }
+
+  &.checked {
+    color: #1a85a1;
+    font-weight: 500;
+  }
+
+  input[type="checkbox"] {
+    accent-color: #1a85a1;
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+  }
+
+  span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.pl-page-size-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #d8dde2;
+  flex-shrink: 0;
+}
+
+.pl-bar-label {
+  font-size: 12px;
+  color: #495057;
+  margin-right: 4px;
+}
+
+.pl-size-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: 'Fira Sans', sans-serif;
+  color: #495057;
+  background: transparent;
+  border: 1px solid #d8dde2;
+  border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s;
 
