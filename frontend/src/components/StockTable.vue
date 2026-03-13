@@ -34,7 +34,6 @@ const emit = defineEmits<{
 const TAB_NAMES = Object.keys(TAB_COLUMNS) as string[];
 const activeTab = ref<string>("Overview");
 
-const PAGE_SIZES = [10, 50, 100] as const;
 const pageSize = ref<number>(50);
 let gridApi: GridApi | null = null;
 
@@ -43,10 +42,6 @@ const pinSvg = faIcon(faThumbtack).html[0];
 function onGridReady(params: GridReadyEvent): void {
   gridApi = params.api;
   params.api.sizeColumnsToFit();
-}
-
-function changePageSize(size: number): void {
-  pageSize.value = size;
 }
 
 const pinnedRows = computed(() =>
@@ -65,8 +60,8 @@ const ELLIPSIS_STYLE: Record<string, string> = {
 
 const TICKER_STYLE: Record<string, string> = {
   color: "#1a85a1",
-  fontWeight: "600",
-  fontFamily: "'Roboto Mono', monospace",
+  fontWeight: "400",
+  fontFamily: "'Roboto', sans-serif",
 };
 
 const DASH = "\u2014";
@@ -101,7 +96,7 @@ function buildColDef(displayName: string): ColDef {
   const field = DISPLAY_TO_FIELD[displayName];
   if (!field) return { field: displayName.toLowerCase().replace(/\s/g, "_"), headerName: displayName };
 
-  const isNumeric = NUMBER_FILTER_COLUMNS.has(displayName) || TEXT_FILTER_COLUMNS.has(displayName) === false && SET_FILTER_COLUMNS.has(displayName) === false;
+  const isText = TEXT_FILTER_COLUMNS.has(displayName) || SET_FILTER_COLUMNS.has(displayName);
   const isPctDecimal = PERCENT_DECIMAL_COLUMNS.has(displayName);
   const isPctDisplay = PERCENT_DISPLAY_COLUMNS.has(displayName);
   const isLarge = LARGE_NUMBER_COLUMNS.has(displayName);
@@ -130,17 +125,17 @@ function buildColDef(displayName: string): ColDef {
     tooltipField: field,
   };
 
-  if (isNumeric && !SET_FILTER_COLUMNS.has(displayName)) {
-    colDef.type = "rightAligned";
+  if (!isText) {
+    colDef.cellStyle = { textAlign: "right" };
     colDef.headerClass = "ag-right-aligned-header";
   }
 
   if (isFlex) {
     colDef.flex = 1;
-    colDef.minWidth = 100;
+    colDef.minWidth = 150;
   } else {
-    colDef.width = 100;
-    colDef.minWidth = 80;
+    colDef.width = 150;
+    colDef.minWidth = 120;
   }
 
   if (TEXT_FILTER_COLUMNS.has(displayName) || SET_FILTER_COLUMNS.has(displayName)) {
@@ -151,7 +146,6 @@ function buildColDef(displayName: string): ColDef {
 
   if (hasColor) {
     colDef.cellClassRules = {
-      "text-success": (p) => (p.value ?? 0) > 0,
       "text-danger": (p) => (p.value ?? 0) < 0,
     };
   }
@@ -234,19 +228,6 @@ const popupParent =
       </button>
     </div>
 
-    <div class="pl-page-size-bar">
-      <span class="pl-bar-label">Show</span>
-      <button
-        v-for="size in PAGE_SIZES"
-        :key="size"
-        class="pl-size-btn"
-        :class="{ active: pageSize === size }"
-        @click="changePageSize(size)"
-      >
-        {{ size }}
-      </button>
-    </div>
-
     <div class="grid-wrapper ag-theme-alpine">
       <AgGridVue
         style="width: 100%; height: 100%"
@@ -285,7 +266,7 @@ const popupParent =
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 10px 16px;
+  padding: 0 0 10px 0;
   border-bottom: 1px solid #d8dde2;
   flex-shrink: 0;
 }
@@ -297,44 +278,7 @@ const popupParent =
   color: #495057;
   background: transparent;
   border: 1px solid #d8dde2;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s;
-
-  &:hover {
-    border-color: #bbc1c7;
-  }
-
-  &.active {
-    color: #fff;
-    background: #1a85a1;
-    border-color: #1a85a1;
-  }
-}
-
-.pl-page-size-bar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 10px 16px;
-  border-bottom: 1px solid #d8dde2;
-  flex-shrink: 0;
-}
-
-.pl-bar-label {
-  font-size: 12px;
-  color: #495057;
-  margin-right: 4px;
-}
-
-.pl-size-btn {
-  padding: 4px 10px;
-  font-size: 12px;
-  font-family: 'Fira Sans', sans-serif;
-  color: #495057;
-  background: transparent;
-  border: 1px solid #d8dde2;
-  border-radius: 4px;
+  border-radius: 0.25rem;
   cursor: pointer;
   transition: all 0.15s;
 
@@ -351,12 +295,8 @@ const popupParent =
 
 .stock-table-container .grid-wrapper {
   flex: 1;
-  min-height: 400px;
+  min-height: 0;
   width: 100%;
-}
-
-.stock-table-container .ag-theme-alpine .text-success {
-  color: #5cb85c !important;
 }
 
 .stock-table-container .ag-theme-alpine .text-danger {

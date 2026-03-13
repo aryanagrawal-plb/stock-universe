@@ -87,15 +87,15 @@ const navItems = [
   font-size: 0.789875rem;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.65);
+  color: #fff;
   text-decoration: none;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: 0.25rem;
   transition: color 0.15s, border-color 0.15s;
   white-space: nowrap;
 
   &:hover {
-    color: rgba(255, 255, 255, 0.9);
+    color: #fff;
   }
 
   &.active {

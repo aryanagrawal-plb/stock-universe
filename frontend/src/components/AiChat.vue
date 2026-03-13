@@ -213,7 +213,7 @@ function actionLabel(msg: ChatMessage): string {
   letter-spacing: 0.5px;
   color: #fff;
   background: #0c1743;
-  border-radius: 4px;
+  border-radius: 0.25rem;
 }
 
 .pl-chat-title {
@@ -231,7 +231,7 @@ function actionLabel(msg: ChatMessage): string {
   height: 28px;
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: 0.25rem;
   background: transparent;
   color: #bbc1c7;
   cursor: pointer;
@@ -265,7 +265,7 @@ function actionLabel(msg: ChatMessage): string {
 .pl-chat-msg {
   margin-bottom: 12px;
   padding: 8px 10px;
-  border-radius: 6px;
+  border-radius: 0.25rem;
   transition: background 0.2s, box-shadow 0.2s;
 
   &.pl-highlighted {
@@ -367,7 +367,7 @@ function actionLabel(msg: ChatMessage): string {
   color: #fff;
   background: #27ae60;
   border: none;
-  border-radius: 4px;
+  border-radius: 0.25rem;
   cursor: pointer;
   transition: background 0.15s;
 
@@ -384,7 +384,7 @@ function actionLabel(msg: ChatMessage): string {
   color: #6c757d;
   background: #f0f0f0;
   border: none;
-  border-radius: 4px;
+  border-radius: 0.25rem;
   cursor: pointer;
   transition: background 0.15s;
 
@@ -401,7 +401,7 @@ function actionLabel(msg: ChatMessage): string {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  border-radius: 3px;
+  border-radius: 0.25rem;
 }
 
 .pl-badge-applied {
