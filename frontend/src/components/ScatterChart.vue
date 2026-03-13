@@ -803,7 +803,7 @@ const tooltipY = computed(() => {
   color: #495057;
   background: #f1f3f5;
   border: 1px solid #d8dde2;
-  border-radius: 4px;
+  border-radius: 0.25rem;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 }

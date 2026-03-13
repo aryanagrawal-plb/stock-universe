@@ -66,10 +66,6 @@ function onGridReady(params: GridReadyEvent): void {
   params.api.sizeColumnsToFit();
 }
 
-function changePageSize(size: number): void {
-  pageSize.value = size;
-}
-
 const pinnedRows = computed(() =>
   props.stocks.filter((s) => props.pinnedCodes.has(s.code))
 );
@@ -86,8 +82,8 @@ const ELLIPSIS_STYLE: Record<string, string> = {
 
 const TICKER_STYLE: Record<string, string> = {
   color: "#1a85a1",
-  fontWeight: "600",
-  fontFamily: "'Roboto Mono', monospace",
+  fontWeight: "400",
+  fontFamily: "'Roboto', sans-serif",
 };
 
 const DASH = "\u2014";
@@ -122,7 +118,7 @@ function buildColDef(displayName: string): ColDef {
   const field = DISPLAY_TO_FIELD[displayName];
   if (!field) return { field: displayName.toLowerCase().replace(/\s/g, "_"), headerName: displayName };
 
-  const isNumeric = NUMBER_FILTER_COLUMNS.has(displayName) || TEXT_FILTER_COLUMNS.has(displayName) === false && SET_FILTER_COLUMNS.has(displayName) === false;
+  const isText = TEXT_FILTER_COLUMNS.has(displayName) || SET_FILTER_COLUMNS.has(displayName);
   const isPctDecimal = PERCENT_DECIMAL_COLUMNS.has(displayName);
   const isPctDisplay = PERCENT_DISPLAY_COLUMNS.has(displayName);
   const isLarge = LARGE_NUMBER_COLUMNS.has(displayName);
@@ -151,17 +147,17 @@ function buildColDef(displayName: string): ColDef {
     tooltipField: field,
   };
 
-  if (isNumeric && !SET_FILTER_COLUMNS.has(displayName)) {
-    colDef.type = "rightAligned";
+  if (!isText) {
+    colDef.cellStyle = { textAlign: "right" };
     colDef.headerClass = "ag-right-aligned-header";
   }
 
   if (isFlex) {
     colDef.flex = 1;
-    colDef.minWidth = 100;
+    colDef.minWidth = 150;
   } else {
-    colDef.width = 100;
-    colDef.minWidth = 80;
+    colDef.width = 150;
+    colDef.minWidth = 120;
   }
 
   if (TEXT_FILTER_COLUMNS.has(displayName) || SET_FILTER_COLUMNS.has(displayName)) {
@@ -172,7 +168,6 @@ function buildColDef(displayName: string): ColDef {
 
   if (hasColor) {
     colDef.cellClassRules = {
-      "text-success": (p) => (p.value ?? 0) > 0,
       "text-danger": (p) => (p.value ?? 0) < 0,
     };
   }
@@ -294,19 +289,6 @@ const popupParent =
       </div>
     </div>
 
-    <div class="pl-page-size-bar">
-      <span class="pl-bar-label">Show</span>
-      <button
-        v-for="size in PAGE_SIZES"
-        :key="size"
-        class="pl-size-btn"
-        :class="{ active: pageSize === size }"
-        @click="changePageSize(size)"
-      >
-        {{ size }}
-      </button>
-    </div>
-
     <div class="grid-wrapper ag-theme-alpine">
       <AgGridVue
         style="width: 100%; height: 100%"
@@ -345,7 +327,7 @@ const popupParent =
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 10px 16px;
+  padding: 0 0 10px 0;
   border-bottom: 1px solid #d8dde2;
   flex-shrink: 0;
 }
@@ -491,12 +473,8 @@ const popupParent =
 
 .stock-table-container .grid-wrapper {
   flex: 1;
-  min-height: 400px;
+  min-height: 0;
   width: 100%;
-}
-
-.stock-table-container .ag-theme-alpine .text-success {
-  color: #5cb85c !important;
 }
 
 .stock-table-container .ag-theme-alpine .text-danger {

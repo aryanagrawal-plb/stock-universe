@@ -129,6 +129,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-height: 0;
   padding-top: 75px;
   overflow: hidden;
 }
@@ -157,16 +158,17 @@ onMounted(() => {
 
 .pl-content {
   flex: 1;
-  overflow-y: auto;
-  padding: 16px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
 }
 
 .pl-table-card {
-  background: #fff;
-  border: 1px solid #d8dde2;
-  border-radius: 0.25rem;
-  min-height: 400px;
-  height: calc(100vh - 75px - 420px - 64px);
+  background: #f5f7fa;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
