@@ -11,4 +11,5 @@ stock_universe_backend.egg-info/SOURCES.txt
 stock_universe_backend.egg-info/dependency_links.txt
 stock_universe_backend.egg-info/requires.txt
 stock_universe_backend.egg-info/top_level.txt
+tests/test_agent.py
 tests/test_stocks.py

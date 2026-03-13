@@ -12,5 +12,5 @@ router = APIRouter(tags=["chat"])
 async def chat(request: ChatRequest) -> ChatResponse:
     """Process a user chat message through the AI agent."""
     history = [{"role": m.role, "content": m.content} for m in request.messages]
-    reply, action, filters = await process_message(history)
-    return ChatResponse(reply=reply, action=action, filters=filters)
+    reply, action, filters, alert_name = await process_message(history)
+    return ChatResponse(reply=reply, action=action, filters=filters, alert_name=alert_name)

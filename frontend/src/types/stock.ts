@@ -90,7 +90,7 @@ export interface FilterChip {
   value: string;
 }
 
-export type FilterAction = "add" | "remove" | "clear" | "none";
+export type FilterAction = "add" | "remove" | "clear" | "watchlist" | "none";
 export type FilterStatus = "pending" | "applied" | "dismissed";
 
 export interface ChatMessage {
@@ -99,6 +99,7 @@ export interface ChatMessage {
   pendingFilters?: UniverseFilters | null;
   action?: FilterAction;
   filterStatus?: FilterStatus;
+  alertName?: string | null;
 }
 
 export interface NumericRange {
@@ -135,4 +136,12 @@ export interface UniverseFilters {
   sharpe_1y?: NumericRange | null;
   sortino_1y?: NumericRange | null;
   max_drawdown_1y?: NumericRange | null;
+}
+
+export interface Alert {
+  id: string;
+  name: string;
+  filters: UniverseFilters;
+  created_at: string;
+  status: "active" | "paused";
 }

@@ -47,23 +47,30 @@ def _get_client() -> AsyncOpenAI:
 
 SYSTEM_PROMPT = """\
 You are a stock-universe filter assistant.  You read the user's
-natural-language request and produce a JSON object with exactly three keys:
+natural-language request and produce a JSON object with these keys:
 
   {
-    "reply":   "<short conversational message to the user>",
-    "action":  "<one of: add, remove, clear, none>",
-    "filters": { ... UniverseFilters ... }
+    "reply":      "<short conversational message to the user>",
+    "action":     "<one of: add, remove, clear, watchlist, none>",
+    "filters":    { ... UniverseFilters ... },
+    "alert_name": "<short descriptive name for the alert, only when action is watchlist>"
   }
 
 ### Action rules
 
-- **add**    – the user wants to ADD or SET filters.  Populate "filters".
-- **remove** – the user wants to REMOVE specific active filters.  Populate
-               "filters" with the fields to remove (e.g. to remove the
-               country filter, set "countries": ["United States"]).
-- **clear**  – the user wants to CLEAR ALL filters.  Set "filters" to {}.
-- **none**   – the user is asking a general question, chatting, or the
-               request doesn't map to any filter change.  Set "filters" to {}.
+- **add**       – the user wants to ADD or SET filters.  Populate "filters".
+- **remove**    – the user wants to REMOVE specific active filters.  Populate
+                  "filters" with the fields to remove (e.g. to remove the
+                  country filter, set "countries": ["United States"]).
+- **clear**     – the user wants to CLEAR ALL filters.  Set "filters" to {}.
+- **watchlist** – the user wants to create a watchlist, alert, reminder, or
+                  notification for certain criteria.  Treat "watchlist",
+                  "alert", "reminder", and "notification" as synonyms.
+                  Populate "filters" with the criteria and set "alert_name"
+                  to a short descriptive name (e.g. "European High Dividend").
+- **none**      – the user is asking a general question, chatting, or the
+                  request doesn't map to any filter change.  Set "filters"
+                  to {}.
 
 ### Reply guidelines
 
@@ -71,6 +78,7 @@ natural-language request and produce a JSON object with exactly three keys:
 - When action is "add", summarise what you're suggesting to add.
 - When action is "remove", summarise what you're suggesting to remove.
 - When action is "clear", confirm that all filters will be cleared.
+- When action is "watchlist", summarise the alert criteria and the name.
 - When action is "none", answer the user's question helpfully.
 
 ### Available categorical values
@@ -155,6 +163,10 @@ symbol or company name (e.g. "Apple", "AAPL").
 - "small cap" → action: "add", market_cap: {"max": 2000}
 - "remove country filter" → action: "remove", countries: [<whatever was set>]
 - "clear all filters" → action: "clear"
+- "create a watchlist for European tech stocks" → action: "watchlist",
+    alert_name: "European Tech Stocks", filters with countries + industries
+- "set up an alert for high dividend US stocks" → action: "watchlist",
+    alert_name: "US High Dividend", filters with countries + dividend_yield
 - "hello" / general question → action: "none"
 """
 
@@ -166,14 +178,14 @@ symbol or company name (e.g. "Apple", "AAPL").
 
 async def process_message(
     messages: list[dict[str, str]],
-) -> tuple[str, str, UniverseFilters | None]:
-    """Process a conversation and return reply, action, and extracted filters.
+) -> tuple[str, str, UniverseFilters | None, str | None]:
+    """Process a conversation and return reply, action, filters, and alert name.
 
     Args:
         messages: Full conversation history as list of {"role": ..., "content": ...}.
 
     Returns:
-        A tuple of (reply text, action string, parsed filters or None).
+        A tuple of (reply text, action string, parsed filters or None, alert_name or None).
     """
     try:
         return await _call_llm(messages)
@@ -183,12 +195,13 @@ async def process_message(
             "Sorry, I couldn't interpret your request. Please try rephrasing.",
             "none",
             None,
+            None,
         )
 
 
 async def _call_llm(
     messages: list[dict[str, str]],
-) -> tuple[str, str, UniverseFilters | None]:
+) -> tuple[str, str, UniverseFilters | None, str | None]:
     """Call DeepSeek with conversation history and parse the structured response."""
     client = _get_client()
 
@@ -212,11 +225,11 @@ async def _call_llm(
         data: dict[str, Any] = json.loads(raw)
     except json.JSONDecodeError:
         logger.warning("Failed to parse DeepSeek response as JSON: %s", raw)
-        return ("I had trouble understanding that. Could you rephrase?", "none", None)
+        return ("I had trouble understanding that. Could you rephrase?", "none", None, None)
 
     reply = data.get("reply", "")
     action = data.get("action", "none")
-    if action not in ("add", "remove", "clear", "none"):
+    if action not in ("add", "remove", "clear", "watchlist", "none"):
         action = "none"
 
     raw_filters = data.get("filters", {})
@@ -226,21 +239,25 @@ async def _call_llm(
     cleaned = _strip_nulls(raw_filters)
     filters: UniverseFilters | None = None
 
-    if action in ("add", "remove") and cleaned:
+    if action in ("add", "remove", "watchlist") and cleaned:
         try:
             filters = UniverseFilters.model_validate(cleaned)
         except ValidationError as exc:
             logger.warning("Filter validation failed: %s", exc)
             filters = None
 
-    if not reply:
-        reply = _generate_fallback_reply(action, filters)
+    alert_name: str | None = None
+    if action == "watchlist":
+        alert_name = data.get("alert_name") or "Untitled Alert"
 
-    return reply, action, filters
+    if not reply:
+        reply = _generate_fallback_reply(action, filters, alert_name)
+
+    return reply, action, filters, alert_name
 
 
 def _generate_fallback_reply(
-    action: str, filters: UniverseFilters | None
+    action: str, filters: UniverseFilters | None, alert_name: str | None = None
 ) -> str:
     """Create a reply when the LLM didn't provide one."""
     if action == "clear":
@@ -250,6 +267,9 @@ def _generate_fallback_reply(
     if filters is None:
         return "I couldn't detect any specific filters in your message."
     summary = summarise_filters(filters)
+    if action == "watchlist":
+        name = alert_name or "Untitled Alert"
+        return f'I\'ll create the alert "{name}" with these criteria:\n{summary}'
     verb = "add" if action == "add" else "remove"
     return f"I'd like to {verb} these filters:\n{summary}"
 

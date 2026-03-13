@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onMounted, computed } from "vue";
+import { ref, onMounted, computed } from "vue";
 import TopBar from "./components/TopBar.vue";
 import FilterBar from "./components/FilterBar.vue";
 import AiChat from "./components/AiChat.vue";
 import ScatterChart from "./components/ScatterChart.vue";
 import StockTable from "./components/StockTable.vue";
+import AlertManagement from "./components/AlertManagement.vue";
 import { useStocks, aiFiltersToChips } from "./composables/useStocks";
 import type { UniverseFilters, FilterChip } from "./types/stock";
 
@@ -50,6 +51,12 @@ function handleClearFilters(): void {
   clearAllFilters();
 }
 
+const currentView = ref("universe");
+
+function handleNavigate(view: string): void {
+  currentView.value = view;
+}
+
 onMounted(() => {
   restoreFilters();
   fetchStocks();
@@ -58,37 +65,49 @@ onMounted(() => {
 
 <template>
   <div class="pl-app">
-    <TopBar />
+    <TopBar :current-view="currentView" @navigate="handleNavigate" />
     <div class="pl-main">
-      <div class="pl-chart-chat-row">
-        <section class="pl-chart-section">
-          <ScatterChart :stocks="filteredStocks" />
-        </section>
-        <aside class="pl-sidebar-section">
-          <FilterBar
-            :stocks="stocks"
-            :filter-chips="displayChips"
-            :result-count="totalResultCount"
-            @update:filter-chips="handleUpdateFilterChips"
-          />
-          <AiChat
-            @apply-filters="handleAiFilters"
-            @remove-filters="handleRemoveFilters"
-            @clear-filters="handleClearFilters"
-          />
-        </aside>
-      </div>
-      <main class="pl-content">
-        <section class="pl-table-card">
-          <StockTable
-            :stocks="filteredStocks"
-            :is-loading="isLoading"
-            :error="error"
-            :pinned-codes="pinnedCodes"
-            @toggle-pin="togglePin"
-          />
-        </section>
-      </main>
+      <template v-if="currentView === 'universe'">
+        <div class="pl-chart-chat-row">
+          <section class="pl-chart-section">
+            <ScatterChart :stocks="filteredStocks" />
+          </section>
+          <aside class="pl-sidebar-section">
+            <FilterBar
+              :stocks="stocks"
+              :filter-chips="displayChips"
+              :result-count="totalResultCount"
+              @update:filter-chips="handleUpdateFilterChips"
+            />
+            <AiChat
+              @apply-filters="handleAiFilters"
+              @remove-filters="handleRemoveFilters"
+              @clear-filters="handleClearFilters"
+            />
+          </aside>
+        </div>
+        <main class="pl-content">
+          <section class="pl-table-card">
+            <StockTable
+              :stocks="filteredStocks"
+              :is-loading="isLoading"
+              :error="error"
+              :pinned-codes="pinnedCodes"
+              @toggle-pin="togglePin"
+            />
+          </section>
+        </main>
+      </template>
+
+      <template v-else-if="currentView === 'alerts'">
+        <AlertManagement />
+      </template>
+
+      <template v-else>
+        <div class="pl-placeholder">
+          <p>{{ currentView.replace(/-/g, ' ').toUpperCase() }} — Coming soon</p>
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -144,5 +163,15 @@ onMounted(() => {
   height: calc(100vh - 75px - 420px - 64px);
   display: flex;
   flex-direction: column;
+}
+
+.pl-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-family: "Fira Sans", sans-serif;
+  font-size: 1.2rem;
+  color: #9ca3af;
 }
 </style>

@@ -96,9 +96,18 @@ function getFilterChips(msg: ChatMessage) {
 }
 
 function actionLabel(msg: ChatMessage): string {
+  if (msg.action === "watchlist") return "Alert criteria";
   if (msg.action === "remove") return "Remove";
   if (msg.action === "clear") return "Clear all";
   return "Add";
+}
+
+function confirmBtnLabel(msg: ChatMessage): string {
+  return msg.action === "watchlist" ? "Create Alert" : "Apply";
+}
+
+function appliedBadgeLabel(msg: ChatMessage): string {
+  return msg.action === "watchlist" ? "Alert created" : "Filters applied";
 }
 </script>
 
@@ -152,11 +161,17 @@ function actionLabel(msg: ChatMessage): string {
         </div>
 
         <div v-if="msg.filterStatus === 'pending'" class="pl-filter-actions">
-          <button class="pl-btn-apply" @click="handleConfirm(i)">Apply</button>
+          <button
+            class="pl-btn-apply"
+            :class="{ 'pl-btn-alert': msg.action === 'watchlist' }"
+            @click="handleConfirm(i)"
+          >
+            {{ confirmBtnLabel(msg) }}
+          </button>
           <button class="pl-btn-dismiss" @click="handleDismiss(i)">Dismiss</button>
         </div>
         <div v-else-if="msg.filterStatus === 'applied'" class="pl-filter-badge pl-badge-applied">
-          Filters applied
+          {{ appliedBadgeLabel(msg) }}
         </div>
         <div v-else-if="msg.filterStatus === 'dismissed'" class="pl-filter-badge pl-badge-dismissed">
           Dismissed
@@ -373,6 +388,14 @@ function actionLabel(msg: ChatMessage): string {
 
   &:hover {
     background: #219a52;
+  }
+
+  &.pl-btn-alert {
+    background: #0c1743;
+
+    &:hover {
+      background: #1a2a6c;
+    }
   }
 }
 

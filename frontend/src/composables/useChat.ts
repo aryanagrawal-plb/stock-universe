@@ -30,6 +30,7 @@ function persistMessages(msgs: ChatMessage[]): void {
       pendingFilters: m.pendingFilters ?? null,
       action: m.action ?? "none",
       filterStatus: m.filterStatus ?? undefined,
+      alertName: m.alertName ?? undefined,
     }));
     localStorage.setItem(STORAGE_KEY, JSON.stringify(serialisable));
   } catch {
@@ -66,18 +67,22 @@ export function useChat(onFilterAction?: OnFilterAction) {
       const data = await response.json();
       const action: FilterAction = data.action ?? "none";
       const filters: UniverseFilters | null = data.filters ?? null;
+      const alertName: string | null = data.alert_name ?? null;
       const hasFilterChange =
-        action === "clear" || ((action === "add" || action === "remove") && filters !== null);
+        action === "clear" ||
+        ((action === "add" || action === "remove") && filters !== null);
+      const isWatchlist = action === "watchlist" && filters !== null;
 
       const msg: ChatMessage = {
         role: "assistant",
         content: data.reply,
       };
 
-      if (hasFilterChange) {
+      if (hasFilterChange || isWatchlist) {
         msg.pendingFilters = filters;
         msg.action = action;
         msg.filterStatus = "pending";
+        if (isWatchlist) msg.alertName = alertName;
       }
 
       messages.value.push(msg);
@@ -91,9 +96,32 @@ export function useChat(onFilterAction?: OnFilterAction) {
     }
   }
 
-  function confirmFilters(index: number): void {
+  async function confirmFilters(index: number): Promise<void> {
     const msg = messages.value[index];
     if (!msg || msg.filterStatus !== "pending") return;
+
+    if (msg.action === "watchlist" && msg.pendingFilters) {
+      try {
+        const res = await fetch("/api/alerts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: msg.alertName ?? "Untitled Alert",
+            filters: msg.pendingFilters,
+          }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        msg.filterStatus = "applied";
+      } catch {
+        msg.filterStatus = "dismissed";
+        messages.value.push({
+          role: "assistant",
+          content: "Failed to create alert. Please try again.",
+        });
+      }
+      messages.value = [...messages.value];
+      return;
+    }
 
     msg.filterStatus = "applied";
     messages.value = [...messages.value];

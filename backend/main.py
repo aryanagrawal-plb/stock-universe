@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import chat, stocks
+from routers import alerts, chat, stocks
 
 app = FastAPI(title="Stock Universe API", version="0.1.0")
 
@@ -24,6 +24,7 @@ app.add_middleware(
 
 app.include_router(stocks.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
+app.include_router(alerts.router, prefix="/api")
 
 
 @app.get("/api/health")
