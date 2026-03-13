@@ -27,19 +27,32 @@ function handleKeydown(e: KeyboardEvent): void {
 </script>
 
 <template>
-  <div class="chat-panel" :class="{ open: isOpen }">
-    <button class="chat-toggle" @click="isOpen = !isOpen">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <Teleport to="body">
+    <!-- Floating circle button -->
+    <button v-show="!isOpen" class="fab" @click="isOpen = true" title="AI Assistant">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
       </svg>
-      AI Assistant
-      <span class="chat-toggle-arrow">{{ isOpen ? "▼" : "▲" }}</span>
     </button>
 
-    <div v-show="isOpen" class="chat-body">
+    <!-- Chat panel -->
+    <div v-show="isOpen" class="chat-window">
+      <div class="chat-header">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+        </svg>
+        <span class="chat-header-title">AI Assistant</span>
+        <button class="chat-close" @click="isOpen = false" title="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
       <div ref="messagesEl" class="chat-messages">
         <div v-if="messages.length === 0" class="chat-empty">
-          Ask the AI assistant to help filter or analyze stocks.
+          Ask the AI to help filter or analyze stocks.
         </div>
         <div
           v-for="(msg, i) in messages"
@@ -65,76 +78,117 @@ function handleKeydown(e: KeyboardEvent): void {
           @keydown="handleKeydown"
         />
         <button class="chat-send" :disabled="isSending || !input.trim()" @click="handleSend">
-          Send
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
         </button>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <style scoped>
-.chat-panel {
-  flex-shrink: 0;
-  border-top: 1px solid var(--color-border);
-  background: var(--color-surface);
+.fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(108, 92, 231, 0.4);
+  transition: transform 0.2s, background 0.15s, box-shadow 0.2s;
+  z-index: 1000;
 }
 
-.chat-toggle {
+.fab:hover {
+  background: var(--color-primary-hover);
+  transform: scale(1.08);
+  box-shadow: 0 6px 28px rgba(108, 92, 231, 0.55);
+}
+
+.chat-window {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 380px;
+  height: 480px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.chat-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
-  padding: 10px 20px;
-  font-size: 13px;
-  font-weight: 500;
-  font-family: var(--font-sans);
-  color: var(--color-text);
-  background: transparent;
+  padding: 12px 16px;
+  background: var(--color-primary);
+  color: white;
+  flex-shrink: 0;
+}
+
+.chat-header-title {
+  font-size: 14px;
+  font-weight: 600;
+  flex: 1;
+}
+
+.chat-close {
+  background: none;
   border: none;
+  color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
-  text-align: left;
-}
-
-.chat-toggle:hover {
-  background: var(--color-surface-hover);
-}
-
-.chat-toggle-arrow {
-  margin-left: auto;
-  font-size: 10px;
-  color: var(--color-text-muted);
-}
-
-.chat-body {
+  padding: 4px;
+  border-radius: 4px;
   display: flex;
-  flex-direction: column;
-  height: 280px;
-  border-top: 1px solid var(--color-border);
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.chat-close:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 20px;
+  padding: 16px;
 }
 
 .chat-empty {
   color: var(--color-text-muted);
   font-size: 13px;
   text-align: center;
-  padding: 40px 0;
+  padding: 60px 20px;
+  line-height: 1.6;
 }
 
 .chat-msg {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .chat-msg-role {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 600;
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
   text-transform: uppercase;
-  margin-right: 8px;
+  letter-spacing: 0.5px;
+  margin-bottom: 3px;
   color: var(--color-text-muted);
 }
 
@@ -149,6 +203,7 @@ function handleKeydown(e: KeyboardEvent): void {
 .chat-msg-text {
   font-size: 13px;
   line-height: 1.5;
+  display: block;
 }
 
 .typing {
@@ -159,8 +214,9 @@ function handleKeydown(e: KeyboardEvent): void {
 .chat-input-row {
   display: flex;
   gap: 8px;
-  padding: 10px 20px;
+  padding: 12px 16px;
   border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 
 .chat-input {
@@ -173,6 +229,7 @@ function handleKeydown(e: KeyboardEvent): void {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   outline: none;
+  transition: border-color 0.15s;
 }
 
 .chat-input:focus {
@@ -180,9 +237,11 @@ function handleKeydown(e: KeyboardEvent): void {
 }
 
 .chat-send {
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 500;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-family: var(--font-sans);
   color: white;
   background: var(--color-primary);
@@ -190,6 +249,7 @@ function handleKeydown(e: KeyboardEvent): void {
   border-radius: var(--radius);
   cursor: pointer;
   transition: background 0.15s;
+  flex-shrink: 0;
 }
 
 .chat-send:hover:not(:disabled) {
@@ -197,7 +257,7 @@ function handleKeydown(e: KeyboardEvent): void {
 }
 
 .chat-send:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 </style>

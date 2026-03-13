@@ -9,12 +9,12 @@ import AiChat from "./components/AiChat.vue";
   <div class="app">
     <TopBar />
     <main class="content">
-      <div class="panel-left">
-        <StockTable />
-      </div>
-      <div class="panel-right">
+      <section class="chart-section">
         <ScatterChart />
-      </div>
+      </section>
+      <section class="table-section">
+        <StockTable />
+      </section>
     </main>
     <AiChat />
   </div>
@@ -50,34 +50,26 @@ body {
   font-family: var(--font-sans);
   background: var(--color-bg);
   color: var(--color-text);
-  min-height: 100vh;
+  margin: 0;
 }
 
 .app {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
 }
 
 .content {
-  display: flex;
   flex: 1;
-  gap: 1px;
-  background: var(--color-border);
-  overflow: hidden;
+  overflow-y: auto;
 }
 
-.panel-left {
-  flex: 1;
-  background: var(--color-bg);
-  overflow-y: auto;
-  min-width: 0;
+.chart-section {
+  height: 420px;
+  border-bottom: 1px solid var(--color-border);
 }
 
-.panel-right {
-  flex: 1;
-  background: var(--color-bg);
-  overflow-y: auto;
-  min-width: 0;
+.table-section {
+  min-height: 300px;
 }
 </style>
