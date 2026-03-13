@@ -5,6 +5,7 @@ import { aiFiltersToChips } from "../composables/useStocks";
 import type { UniverseFilters, FilterAction, ChatMessage } from "../types/stock";
 
 const emit = defineEmits<{
+  "set-filters": [filters: UniverseFilters];
   "apply-filters": [filters: UniverseFilters];
   "remove-filters": [filters: UniverseFilters];
   "clear-filters": [];
@@ -12,7 +13,8 @@ const emit = defineEmits<{
 
 const { messages, isSending, sendMessage, confirmFilters, dismissFilters, clearMessages } =
   useChat((action: FilterAction, filters: UniverseFilters | null) => {
-    if (action === "add" && filters) emit("apply-filters", filters);
+    if (action === "set" && filters) emit("set-filters", filters);
+    else if (action === "add" && filters) emit("apply-filters", filters);
     else if (action === "remove" && filters) emit("remove-filters", filters);
     else if (action === "clear") emit("clear-filters");
   });
@@ -97,6 +99,7 @@ function getFilterChips(msg: ChatMessage) {
 
 function actionLabel(msg: ChatMessage): string {
   if (msg.action === "watchlist") return "Alert criteria";
+  if (msg.action === "set") return "Set";
   if (msg.action === "remove") return "Remove";
   if (msg.action === "clear") return "Clear all";
   return "Add";
@@ -228,7 +231,7 @@ function appliedBadgeLabel(msg: ChatMessage): string {
   letter-spacing: 0.5px;
   color: #fff;
   background: #0c1743;
-  border-radius: 4px;
+  border-radius: 0.25rem;
 }
 
 .pl-chat-title {
@@ -246,7 +249,7 @@ function appliedBadgeLabel(msg: ChatMessage): string {
   height: 28px;
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: 0.25rem;
   background: transparent;
   color: #bbc1c7;
   cursor: pointer;
@@ -280,7 +283,7 @@ function appliedBadgeLabel(msg: ChatMessage): string {
 .pl-chat-msg {
   margin-bottom: 12px;
   padding: 8px 10px;
-  border-radius: 6px;
+  border-radius: 0.25rem;
   transition: background 0.2s, box-shadow 0.2s;
 
   &.pl-highlighted {
@@ -382,7 +385,7 @@ function appliedBadgeLabel(msg: ChatMessage): string {
   color: #fff;
   background: #27ae60;
   border: none;
-  border-radius: 4px;
+  border-radius: 0.25rem;
   cursor: pointer;
   transition: background 0.15s;
 
@@ -407,7 +410,7 @@ function appliedBadgeLabel(msg: ChatMessage): string {
   color: #6c757d;
   background: #f0f0f0;
   border: none;
-  border-radius: 4px;
+  border-radius: 0.25rem;
   cursor: pointer;
   transition: background 0.15s;
 
@@ -424,7 +427,7 @@ function appliedBadgeLabel(msg: ChatMessage): string {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  border-radius: 3px;
+  border-radius: 0.25rem;
 }
 
 .pl-badge-applied {

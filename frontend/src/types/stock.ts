@@ -90,7 +90,7 @@ export interface FilterChip {
   value: string;
 }
 
-export type FilterAction = "add" | "remove" | "clear" | "watchlist" | "none";
+export type FilterAction = "set" | "add" | "remove" | "clear" | "watchlist" | "none";
 export type FilterStatus = "pending" | "applied" | "dismissed";
 
 export interface ChatMessage {

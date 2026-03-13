@@ -491,3 +491,4 @@ removeAiFilters(toRemove):
 | Server | Uvicorn | ASGI server with hot reload |
 | Data | Static JSON (40k records) | Stock universe dataset |
 | Persistence | localStorage | Chat history + AI filter state |
+ARCHITECTURE.md

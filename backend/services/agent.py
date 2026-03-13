@@ -12,13 +12,17 @@ import logging
 import os
 from typing import Any
 
+from pathlib import Path
+
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from pydantic import ValidationError
 
 from models.schemas import NumericRange, UniverseFilters
 
-load_dotenv()
+# Load .env from backend directory (works regardless of cwd when uvicorn starts)
+_load_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(_load_path)
 
 logger = logging.getLogger(__name__)
 
@@ -51,14 +55,22 @@ natural-language request and produce a JSON object with these keys:
 
   {
     "reply":      "<short conversational message to the user>",
-    "action":     "<one of: add, remove, clear, watchlist, none>",
+    "action":     "<one of: set, add, remove, clear, watchlist, none>",
     "filters":    { ... UniverseFilters ... },
     "alert_name": "<short descriptive name for the alert, only when action is watchlist>"
   }
 
 ### Action rules
 
-- **add**       – the user wants to ADD or SET filters.  Populate "filters".
+- **set**       – the user wants to REPLACE the current filters with a new set.
+                  Use this when the user describes the complete desired state
+                  (e.g. "show only India energy", "switch to Japan tech",
+                  "I want US healthcare stocks").  The previous filters will be
+                  discarded and replaced by the ones you provide.
+- **add**       – the user wants to ADD filters ON TOP of what is already active.
+                  Use this when they say "also", "additionally", "include",
+                  or just ask for something without implying the old filters
+                  should be removed.
 - **remove**    – the user wants to REMOVE specific active filters.  Populate
                   "filters" with the fields to remove (e.g. to remove the
                   country filter, set "countries": ["United States"]).
@@ -72,10 +84,18 @@ natural-language request and produce a JSON object with these keys:
                   request doesn't map to any filter change.  Set "filters"
                   to {}.
 
+### How to choose between "set" and "add"
+
+- "Show me India energy stocks" after a previous filter → **set** (replaces)
+- "Show only X" / "Switch to X" / "I want X" → **set** (replaces)
+- "Also show Japan" / "Add technology" → **add** (merges)
+- If unsure whether the user wants to replace or add, default to **set**.
+
 ### Reply guidelines
 
 - Keep replies short (1-3 sentences).
-- When action is "add", summarise what you're suggesting to add.
+- When action is "set", say what the new filters will be.
+- When action is "add", say what you're adding to the existing filters.
 - When action is "remove", summarise what you're suggesting to remove.
 - When action is "clear", confirm that all filters will be cleared.
 - When action is "watchlist", summarise the alert criteria and the name.
@@ -156,11 +176,13 @@ symbol or company name (e.g. "Apple", "AAPL").
 ### Filter rules
 - Only set filter fields the user explicitly or implicitly requested.
 - Leave every other filter field out of the JSON (do NOT set them to null).
-- "tech stocks" → action: "add", industries: ["Technology"]
-- "cheap stocks" → action: "add", price: {"max": 20}
-- "high dividend" → action: "add", dividend_yield: {"min": 3}
-- "large cap" → action: "add", market_cap: {"min": 10000}
-- "small cap" → action: "add", market_cap: {"max": 2000}
+- "show me tech stocks" → action: "set", industries: ["Technology"]
+- "show India and China energy" → action: "set", countries: ["India","China"], industries: ["Energy"]
+- "show only India energy" (after above) → action: "set", countries: ["India"], industries: ["Energy"]
+- "also add Japan" → action: "add", countries: ["Japan"]
+- "cheap stocks" → action: "set", price: {"max": 20}
+- "high dividend" → action: "set", dividend_yield: {"min": 3}
+- "large cap" → action: "set", market_cap: {"min": 10000}
 - "remove country filter" → action: "remove", countries: [<whatever was set>]
 - "clear all filters" → action: "clear"
 - "create a watchlist for European tech stocks" → action: "watchlist",
@@ -229,7 +251,7 @@ async def _call_llm(
 
     reply = data.get("reply", "")
     action = data.get("action", "none")
-    if action not in ("add", "remove", "clear", "watchlist", "none"):
+    if action not in ("set", "add", "remove", "clear", "watchlist", "none"):
         action = "none"
 
     raw_filters = data.get("filters", {})
@@ -239,7 +261,7 @@ async def _call_llm(
     cleaned = _strip_nulls(raw_filters)
     filters: UniverseFilters | None = None
 
-    if action in ("add", "remove", "watchlist") and cleaned:
+    if action in ("set", "add", "remove", "watchlist") and cleaned:
         try:
             filters = UniverseFilters.model_validate(cleaned)
         except ValidationError as exc:
@@ -270,7 +292,7 @@ def _generate_fallback_reply(
     if action == "watchlist":
         name = alert_name or "Untitled Alert"
         return f'I\'ll create the alert "{name}" with these criteria:\n{summary}'
-    verb = "add" if action == "add" else "remove"
+    verb = "set" if action == "set" else ("add" if action == "add" else "remove")
     return f"I'd like to {verb} these filters:\n{summary}"
 
 

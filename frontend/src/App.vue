@@ -9,6 +9,8 @@ import AlertManagement from "./components/AlertManagement.vue";
 import { useStocks, aiFiltersToChips } from "./composables/useStocks";
 import type { UniverseFilters, FilterChip } from "./types/stock";
 
+const selectedUniverse = ref<string>("Equities");
+
 const {
   stocks,
   filteredStocks,
@@ -19,6 +21,7 @@ const {
   fetchStocks,
   pinnedCodes,
   togglePin,
+  setAiFilters,
   applyAiFilters,
   removeAiFilters,
   clearAiFilters,
@@ -37,6 +40,10 @@ const totalResultCount = computed(() => filteredStocks.value.length);
 function handleUpdateFilterChips(chips: FilterChip[]): void {
   clearAiFilters();
   filterChips.value = chips;
+}
+
+function handleSetFilters(filters: UniverseFilters): void {
+  setAiFilters(filters);
 }
 
 function handleAiFilters(filters: UniverseFilters): void {
@@ -70,9 +77,13 @@ onMounted(() => {
       <template v-if="currentView === 'universe'">
         <div class="pl-chart-chat-row">
           <section class="pl-chart-section">
-            <ScatterChart :stocks="filteredStocks" />
+            <ScatterChart
+              :stocks="filteredStocks"
+              :selected-universe="selectedUniverse"
+              @update:universe="selectedUniverse = $event"
+            />
           </section>
-          <aside class="pl-sidebar-section">
+          <aside v-if="selectedUniverse === 'Equities'" class="pl-sidebar-section">
             <FilterBar
               :stocks="stocks"
               :filter-chips="displayChips"
@@ -80,22 +91,36 @@ onMounted(() => {
               @update:filter-chips="handleUpdateFilterChips"
             />
             <AiChat
+              @set-filters="handleSetFilters"
               @apply-filters="handleAiFilters"
               @remove-filters="handleRemoveFilters"
               @clear-filters="handleClearFilters"
             />
           </aside>
         </div>
-        <main class="pl-content">
-          <section class="pl-table-card">
-            <StockTable
-              :stocks="filteredStocks"
-              :is-loading="isLoading"
-              :error="error"
-              :pinned-codes="pinnedCodes"
-              @toggle-pin="togglePin"
-            />
-          </section>
+        <main
+          :class="[
+            'pl-content',
+            selectedUniverse !== 'Equities' ? 'pl-content--empty' : '',
+          ]"
+        >
+          <template v-if="selectedUniverse === 'Equities'">
+            <section class="pl-table-card">
+              <StockTable
+                :stocks="filteredStocks"
+                :is-loading="isLoading"
+                :error="error"
+                :pinned-codes="pinnedCodes"
+                @toggle-pin="togglePin"
+              />
+            </section>
+          </template>
+          <template v-else>
+            <div class="pl-empty-page">
+              <p class="pl-empty-message">This page is not implemented yet.</p>
+              <p class="pl-empty-hint">Select Equities from the dropdown to return.</p>
+            </div>
+          </template>
         </main>
       </template>
 
@@ -123,6 +148,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-height: 0;
   padding-top: 75px;
   overflow: hidden;
 }
@@ -151,18 +177,41 @@ onMounted(() => {
 
 .pl-content {
   flex: 1;
-  overflow-y: auto;
-  padding: 16px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
 }
 
 .pl-table-card {
-  background: #fff;
-  border: 1px solid #d8dde2;
-  border-radius: 0.25rem;
-  min-height: 400px;
-  height: calc(100vh - 75px - 420px - 64px);
+  background: #f5f7fa;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+.pl-content--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pl-empty-page {
+  text-align: center;
+  color: #495057;
+}
+
+.pl-empty-message {
+  font-family: 'Fira Sans', sans-serif;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.pl-empty-hint {
+  font-size: 13px;
+  color: #8b8fa3;
 }
 
 .pl-placeholder {

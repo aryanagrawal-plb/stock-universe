@@ -70,7 +70,7 @@ export function useChat(onFilterAction?: OnFilterAction) {
       const alertName: string | null = data.alert_name ?? null;
       const hasFilterChange =
         action === "clear" ||
-        ((action === "add" || action === "remove") && filters !== null);
+        ((action === "set" || action === "add" || action === "remove") && filters !== null);
       const isWatchlist = action === "watchlist" && filters !== null;
 
       const msg: ChatMessage = {
