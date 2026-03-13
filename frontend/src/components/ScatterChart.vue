@@ -417,7 +417,7 @@ const tooltipY = computed(() => {
         <h3 class="scatter-title" >
           <span style="margin-right: 1rem">My Universe</span>
           <span class="universe-selection">{{ displayUniverse }}</span>
-          <span class="universe-chevron">&#9660;</span>
+          <span class="universe-chevron"></span>
         </h3>
         <div v-show="isUniverseMenuOpen" class="universe-menu">
           <button
@@ -705,8 +705,15 @@ const tooltipY = computed(() => {
 }
 
 .universe-chevron {
-  color: #1a85a1;
-  font-size: 10px;
+  font-size: 0.875rem;
+  display: inline-block;
+  margin-left: 0.25em;
+  vertical-align: middle;
+  /* transform: translateY(-2px); */
+  border-top: 0.3em solid #1a85a1;
+  border-right: 0.3em solid transparent;
+  border-bottom: 0;
+  border-left: 0.3em solid transparent;
 }
 
 .universe-menu {
