@@ -5,6 +5,11 @@ import type { Stock } from "../types/stock";
 
 const props = defineProps<{
   stocks: Stock[];
+  selectedUniverse?: string;
+}>();
+
+const emit = defineEmits<{
+  "update:universe": [value: string];
 }>();
 
 interface GroupOption {
@@ -89,6 +94,21 @@ const isTourActive = ref(false);
 const currentTourLabel = ref<string | null>(null);
 const tourFilterValue = ref<string | null>(null);
 
+const UNIVERSE_OPTIONS = [
+  "All",
+  "Equities",
+  "Commodity",
+  "Fixed Income",
+  "Foreign Exchange",
+  "Credit",
+  "Multi-Asset",
+] as const;
+const displayUniverse = computed(
+  () => (props.selectedUniverse as (typeof UNIVERSE_OPTIONS)[number]) ?? "Equities"
+);
+const isUniverseMenuOpen = ref(false);
+const universeDropdownRef = ref<HTMLDivElement | null>(null);
+
 let resizeObserver: ResizeObserver | null = null;
 let zoomBehavior: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null;
 let tourTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -123,7 +143,25 @@ onMounted(() => {
 onUnmounted(() => {
   resizeObserver?.disconnect();
   cancelTour();
+  document.removeEventListener("click", closeUniverseMenuOnClickOutside);
 });
+
+function toggleUniverseMenu(): void {
+  isUniverseMenuOpen.value = !isUniverseMenuOpen.value;
+  if (isUniverseMenuOpen.value) {
+    setTimeout(() => document.addEventListener("click", closeUniverseMenuOnClickOutside), 0);
+  } else {
+    document.removeEventListener("click", closeUniverseMenuOnClickOutside);
+  }
+}
+
+function closeUniverseMenuOnClickOutside(e: MouseEvent): void {
+  const el = e.target as Node;
+  if (!el || !universeDropdownRef.value?.contains(el)) {
+    isUniverseMenuOpen.value = false;
+    document.removeEventListener("click", closeUniverseMenuOnClickOutside);
+  }
+}
 
 const volField = computed(() => selectedPeriod.value.volField);
 const retField = computed(() => selectedPeriod.value.retField);
@@ -170,7 +208,7 @@ const xScale = computed(() =>
 const yScale = computed(() =>
   d3
     .scaleLinear()
-    .domain(d3.extent(validStocks.value, getRet) as [number, number])
+    .domain(d3.extent(validStocks.value, (s) => s.return_1y as number) as [number, number])
     .nice()
     .range([height.value - margin.bottom, margin.top])
 );
@@ -342,6 +380,12 @@ function onPointLeave(): void {
   hoveredStock.value = null;
 }
 
+function selectUniverse(option: (typeof UNIVERSE_OPTIONS)[number]): void {
+  emit("update:universe", option);
+  isUniverseMenuOpen.value = false;
+  document.removeEventListener("click", closeUniverseMenuOnClickOutside);
+}
+
 function tooltipText(stock: Stock): string {
   const vol = (getVol(stock) * 100).toFixed(1);
   const ret = (getRet(stock) * 100).toFixed(1);
@@ -365,9 +409,30 @@ const tooltipY = computed(() => {
 <template>
   <div class="scatter-container">
     <div class="scatter-header">
-      <h3 class="scatter-title">My Universe</h3>
+      <div
+        ref="universeDropdownRef"
+        class="universe-dropdown"
+        @click.stop="toggleUniverseMenu"
+      >
+        <h3 class="scatter-title">
+          My Universe
+          <span class="universe-selection">{{ displayUniverse }}</span>
+          <span class="universe-chevron">&#9660;</span>
+        </h3>
+        <div v-show="isUniverseMenuOpen" class="universe-menu">
+          <button
+            v-for="opt in UNIVERSE_OPTIONS"
+            :key="opt"
+            class="universe-option"
+            :class="{ active: displayUniverse === opt }"
+            @click.stop="selectUniverse(opt)"
+          >
+            {{ opt }}
+          </button>
+        </div>
+      </div>
 
-      <div class="period-selector">
+      <div v-if="displayUniverse === 'Equities'" class="period-selector">
         <button
           v-for="p in PERIOD_OPTIONS"
           :key="p.label"
@@ -382,7 +447,7 @@ const tooltipY = computed(() => {
       <div class="header-spacer"></div>
 
       <div class="tour-controls">
-        <div class="group-selector-wrap">
+        <div v-if="displayUniverse === 'Equities'" class="group-selector-wrap">
           <button
             class="tour-btn"
             :class="{ 'tour-btn--active': showGroupDropdown }"
@@ -407,21 +472,21 @@ const tooltipY = computed(() => {
           </div>
         </div>
         <button
-          v-if="!isTourActive"
+          v-if="displayUniverse === 'Equities' && !isTourActive"
           class="tour-btn"
           @click="startTour"
         >
           Start Tour
         </button>
         <button
-          v-else
+          v-if="displayUniverse === 'Equities' && isTourActive"
           class="tour-btn tour-btn--stop"
           @click="cancelTour"
         >
           Stop Tour
         </button>
         <button
-          v-if="isZoomed && !isTourActive"
+          v-if="displayUniverse === 'Equities' && isZoomed && !isTourActive"
           class="tour-btn"
           @click="resetZoom"
         >
@@ -430,7 +495,7 @@ const tooltipY = computed(() => {
       </div>
     </div>
 
-    <div ref="containerRef" class="chart-wrap">
+    <div v-if="displayUniverse === 'Equities'" ref="containerRef" class="chart-wrap">
       <svg ref="svgRef" :width="width" :height="height">
         <defs>
           <clipPath id="scatter-clip">
@@ -443,6 +508,7 @@ const tooltipY = computed(() => {
           </clipPath>
         </defs>
 
+        <!-- Clipped content with zoom transform -->
         <g clip-path="url(#scatter-clip)">
           <g :transform="transformString">
             <circle
@@ -505,25 +571,29 @@ const tooltipY = computed(() => {
           {{ currentTourLabel }}
         </text>
 
+        <!-- Tooltip -->
         <g
           v-if="hoveredStock && !isTourActive"
           :transform="`translate(${tooltipX}, ${tooltipY})`"
         >
           <rect
-            :width="tooltipText(hoveredStock.stock).length * 6.8 + 16"
+            :width="tooltipText(hoveredStock.stock).length * 7.2 + 16"
             height="26"
             rx="4"
             fill="#ffffff"
-            fill-opacity="0.92"
+            fill-opacity="0.9"
             stroke="#d8dde2"
             y="-18"
             x="-4"
           />
-          <text fill="#4b4b4b" font-size="11" font-family="'Fira Sans', sans-serif" y="-1">
+          <text fill="#4b4b4b" font-size="12" font-family="'Fira Sans', sans-serif" y="-1">
             {{ tooltipText(hoveredStock.stock) }}
           </text>
         </g>
       </svg>
+    </div>
+    <div v-else class="chart-wrap chart-placeholder">
+      <p class="chart-placeholder-text">Not implemented yet</p>
     </div>
 
     <div class="color-legend">
@@ -555,6 +625,11 @@ const tooltipY = computed(() => {
   gap: 10px;
   margin-bottom: 4px;
   flex-shrink: 0;
+}
+
+.universe-dropdown {
+  position: relative;
+  cursor: pointer;
 }
 
 .scatter-title {
@@ -617,6 +692,58 @@ const tooltipY = computed(() => {
   font-size: 13px;
   font-weight: 600;
   color: #495057;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.universe-selection {
+  color: #1a85a1;
+  font-weight: 600;
+}
+
+.universe-chevron {
+  color: #1a85a1;
+  font-size: 10px;
+}
+
+.universe-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 160px;
+  padding: 6px 0;
+  background: #fff;
+  border: 1px solid #d8dde2;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+}
+
+.universe-option {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-family: 'Fira Sans', sans-serif;
+  color: #495057;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.universe-option:hover {
+  background: #f1f3f5;
+}
+
+.universe-option.active {
+  color: #1a85a1;
+  font-weight: 600;
+  background: rgba(26, 133, 161, 0.08);
 }
 
 .group-dropdown-item.selected .group-dropdown-label {
@@ -666,7 +793,6 @@ const tooltipY = computed(() => {
 .tour-controls {
   display: flex;
   gap: 6px;
-  flex-shrink: 0;
 }
 
 .tour-btn {
@@ -701,6 +827,18 @@ const tooltipY = computed(() => {
   flex: 1;
   min-height: 350px;
   position: relative;
+}
+
+.chart-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-placeholder-text {
+  font-family: 'Fira Sans', sans-serif;
+  font-size: 14px;
+  color: #8b8fa3;
 }
 
 .data-point {

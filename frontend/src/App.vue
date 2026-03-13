@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, computed } from "vue";
+import { onMounted, computed, ref } from "vue";
 import TopBar from "./components/TopBar.vue";
 import FilterBar from "./components/FilterBar.vue";
 import AiChat from "./components/AiChat.vue";
@@ -7,6 +7,8 @@ import ScatterChart from "./components/ScatterChart.vue";
 import StockTable from "./components/StockTable.vue";
 import { useStocks, aiFiltersToChips } from "./composables/useStocks";
 import type { UniverseFilters, FilterChip } from "./types/stock";
+
+const selectedUniverse = ref<string>("Equities");
 
 const {
   stocks,
@@ -67,9 +69,13 @@ onMounted(() => {
     <div class="pl-main">
       <div class="pl-chart-chat-row">
         <section class="pl-chart-section">
-          <ScatterChart :stocks="filteredStocks" />
+          <ScatterChart
+            :stocks="filteredStocks"
+            :selected-universe="selectedUniverse"
+            @update:universe="selectedUniverse = $event"
+          />
         </section>
-        <aside class="pl-sidebar-section">
+        <aside v-if="selectedUniverse === 'Equities'" class="pl-sidebar-section">
           <FilterBar
             :stocks="stocks"
             :filter-chips="displayChips"
@@ -84,16 +90,29 @@ onMounted(() => {
           />
         </aside>
       </div>
-      <main class="pl-content">
-        <section class="pl-table-card">
-          <StockTable
-            :stocks="filteredStocks"
-            :is-loading="isLoading"
-            :error="error"
-            :pinned-codes="pinnedCodes"
-            @toggle-pin="togglePin"
-          />
-        </section>
+      <main
+        :class="[
+          'pl-content',
+          selectedUniverse !== 'Equities' ? 'pl-content--empty' : '',
+        ]"
+      >
+        <template v-if="selectedUniverse === 'Equities'">
+          <section class="pl-table-card">
+            <StockTable
+              :stocks="filteredStocks"
+              :is-loading="isLoading"
+              :error="error"
+              :pinned-codes="pinnedCodes"
+              @toggle-pin="togglePin"
+            />
+          </section>
+        </template>
+        <template v-else>
+          <div class="pl-empty-page">
+            <p class="pl-empty-message">This page is not implemented yet.</p>
+            <p class="pl-empty-hint">Select Equities from the dropdown to return.</p>
+          </div>
+        </template>
       </main>
     </div>
   </div>
@@ -150,5 +169,27 @@ onMounted(() => {
   height: calc(100vh - 75px - 420px - 64px);
   display: flex;
   flex-direction: column;
+}
+
+.pl-content--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pl-empty-page {
+  text-align: center;
+  color: #495057;
+}
+
+.pl-empty-message {
+  font-family: 'Fira Sans', sans-serif;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.pl-empty-hint {
+  font-size: 13px;
+  color: #8b8fa3;
 }
 </style>
