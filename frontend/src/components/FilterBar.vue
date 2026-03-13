@@ -26,13 +26,13 @@ interface Suggestion {
 const categoryIndex = computed(() => {
   const allStocks = props.stocks;
   return [
-    { category: "Country", values: [...new Set(allStocks.map((s) => s.country))].sort() },
-    { category: "Industry", values: [...new Set(allStocks.map((s) => s.industry))].sort() },
-    { category: "Sub-Industry", values: [...new Set(allStocks.map((s) => s.sub_industry))].sort() },
-    { category: "Exchange", values: [...new Set(allStocks.map((s) => s.exchange))].sort() },
-    { category: "Currency", values: [...new Set(allStocks.map((s) => s.currency))].sort() },
+    { category: "Country", values: [...new Set(allStocks.map((s) => s.country ?? ""))].sort() },
+    { category: "Industry", values: [...new Set(allStocks.map((s) => s.industry ?? ""))].sort() },
+    { category: "Sub-Industry", values: [...new Set(allStocks.map((s) => s.sub_industry ?? ""))].sort() },
+    { category: "Exchange", values: [...new Set(allStocks.map((s) => s.exchange ?? ""))].sort() },
+    { category: "Currency", values: [...new Set(allStocks.map((s) => s.currency ?? ""))].sort() },
     { category: "Ticker", values: allStocks.map((s) => s.code) },
-    { category: "Name", values: [...new Set(allStocks.map((s) => s.name))] },
+    { category: "Name", values: [...new Set(allStocks.map((s) => s.name ?? ""))] },
   ];
 });
 
