@@ -1,0 +1,27 @@
+[project]
+name = "stock-universe-backend"
+version = "0.1.0"
+description = "Stock Universe API backend"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "httpx",
+    "ruff",
+]
+
+[tool.setuptools.packages.find]
+include = ["routers*", "services*", "models*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

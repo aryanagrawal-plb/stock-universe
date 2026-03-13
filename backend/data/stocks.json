@@ -1,0 +1,102 @@
+[
+  {
+    "ticker": "AAPL",
+    "name": "Apple Inc.",
+    "sector": "Technology",
+    "price": 178.72,
+    "market_cap": 2800000000000,
+    "pe_ratio": 29.5,
+    "dividend_yield": 0.55,
+    "volume": 58000000
+  },
+  {
+    "ticker": "MSFT",
+    "name": "Microsoft Corp.",
+    "sector": "Technology",
+    "price": 378.91,
+    "market_cap": 2810000000000,
+    "pe_ratio": 35.2,
+    "dividend_yield": 0.74,
+    "volume": 22000000
+  },
+  {
+    "ticker": "GOOGL",
+    "name": "Alphabet Inc.",
+    "sector": "Technology",
+    "price": 141.80,
+    "market_cap": 1780000000000,
+    "pe_ratio": 25.1,
+    "dividend_yield": null,
+    "volume": 25000000
+  },
+  {
+    "ticker": "AMZN",
+    "name": "Amazon.com Inc.",
+    "sector": "Consumer Discretionary",
+    "price": 178.25,
+    "market_cap": 1850000000000,
+    "pe_ratio": 60.3,
+    "dividend_yield": null,
+    "volume": 45000000
+  },
+  {
+    "ticker": "JPM",
+    "name": "JPMorgan Chase & Co.",
+    "sector": "Financials",
+    "price": 196.50,
+    "market_cap": 565000000000,
+    "pe_ratio": 11.8,
+    "dividend_yield": 2.35,
+    "volume": 9000000
+  },
+  {
+    "ticker": "JNJ",
+    "name": "Johnson & Johnson",
+    "sector": "Healthcare",
+    "price": 156.20,
+    "market_cap": 376000000000,
+    "pe_ratio": 15.4,
+    "dividend_yield": 3.02,
+    "volume": 7500000
+  },
+  {
+    "ticker": "V",
+    "name": "Visa Inc.",
+    "sector": "Financials",
+    "price": 275.30,
+    "market_cap": 564000000000,
+    "pe_ratio": 31.0,
+    "dividend_yield": 0.76,
+    "volume": 6800000
+  },
+  {
+    "ticker": "XOM",
+    "name": "Exxon Mobil Corp.",
+    "sector": "Energy",
+    "price": 104.85,
+    "market_cap": 418000000000,
+    "pe_ratio": 12.6,
+    "dividend_yield": 3.45,
+    "volume": 15000000
+  },
+  {
+    "ticker": "PG",
+    "name": "Procter & Gamble Co.",
+    "sector": "Consumer Staples",
+    "price": 160.10,
+    "market_cap": 378000000000,
+    "pe_ratio": 26.8,
+    "dividend_yield": 2.40,
+    "volume": 6200000
+  },
+  {
+    "ticker": "NVDA",
+    "name": "NVIDIA Corp.",
+    "sector": "Technology",
+    "price": 495.22,
+    "market_cap": 1220000000000,
+    "pe_ratio": 65.0,
+    "dividend_yield": 0.04,
+    "volume": 42000000
+  }
+]
