@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from models.schemas import Alert, AlertCreate, NumericRange, UniverseFilters
+from models.schemas import Alert, AlertCreate, NumericRange, TriggeredAlert, UniverseFilters
 
 router = APIRouter(tags=["alerts"])
 
@@ -78,6 +78,30 @@ _alerts: list[Alert] = [
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
+
+_TRIGGERED_OFFSETS = [
+    (timedelta(minutes=5), 12),
+    (timedelta(minutes=47), 38),
+    (timedelta(hours=3), 7),
+]
+
+
+@router.get("/alerts/triggered", response_model=list[TriggeredAlert])
+async def list_triggered_alerts() -> list[TriggeredAlert]:
+    """Return active alerts whose conditions are spoofed as met."""
+    now = datetime.now(timezone.utc)
+    active = [a for a in _alerts if a.status == "active"]
+    triggered: list[TriggeredAlert] = []
+    for alert, (offset, count) in zip(active[:3], _TRIGGERED_OFFSETS):
+        triggered.append(
+            TriggeredAlert(
+                alert=alert,
+                triggered_at=(now - offset).isoformat(),
+                match_count=count,
+            )
+        )
+    return triggered
 
 
 @router.get("/alerts", response_model=list[Alert])

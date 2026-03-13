@@ -240,3 +240,11 @@ class Alert(BaseModel):
     filters: UniverseFilters
     created_at: str
     status: str = "active"
+
+
+class TriggeredAlert(BaseModel):
+    """An alert whose conditions have been met (spoofed for PoC)."""
+
+    alert: Alert
+    triggered_at: str
+    match_count: int

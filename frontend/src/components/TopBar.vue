@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import logoUrl from "@/assets/new-premialab-logo.svg";
+import AlertBell from "./AlertBell.vue";
+import type { UniverseFilters } from "../types/stock";
 
 const props = defineProps<{
   currentView?: string;
@@ -9,6 +11,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: "navigate", view: string): void;
   (e: "command", code: string): void;
+  (e: "apply-alert", filters: UniverseFilters): void;
 }>();
 
 const navItems = [
@@ -73,6 +76,10 @@ function submitCommand(): void {
       </div>
 
       <div class="pl-navbar-right">
+        <AlertBell
+          @apply-alert="(f: UniverseFilters) => emit('apply-alert', f)"
+          @navigate="(v: string) => emit('navigate', v)"
+        />
         <button class="squared-center-fa-btn" title="Help">
           <icon icon="circle-question" />
         </button>
