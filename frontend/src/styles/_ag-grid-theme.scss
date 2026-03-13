@@ -42,3 +42,10 @@
     background: rgba(26, 133, 161, 0.06) !important;
   }
 }
+
+/* Ensure column menu and other popups render above table content */
+.ag-popup,
+.ag-menu,
+.ag-column-drop-wrapper {
+  z-index: 10000 !important;
+}
