@@ -11,7 +11,7 @@ const emit = defineEmits<{
   "clear-filters": [];
 }>();
 
-const { messages, isSending, sendMessage, confirmFilters, dismissFilters } =
+const { messages, isSending, sendMessage, confirmFilters, dismissFilters, clearMessages } =
   useChat((action: FilterAction, filters: UniverseFilters | null) => {
     if (action === "set" && filters) emit("set-filters", filters);
     else if (action === "add" && filters) emit("apply-filters", filters);
@@ -28,7 +28,7 @@ function focusInput(): void {
 }
 
 function clearHistory(): void {
-  handleClearChat();
+  clearMessages();
 }
 
 defineExpose({ focusInput, clearHistory });
