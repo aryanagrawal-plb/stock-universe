@@ -36,6 +36,7 @@ export interface Stock {
   return_5y?: number | null;
   return_10y?: number | null;
   return_ytd?: number | null;
+  return_mtd?: number | null;
 
   volatility_1m?: number | null;
   volatility_3m?: number | null;

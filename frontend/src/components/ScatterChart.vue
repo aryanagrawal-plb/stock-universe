@@ -6,7 +6,23 @@ import type { Stock } from "../types/stock";
 const props = defineProps<{
   stocks: Stock[];
   selectedUniverse?: string;
+  viewMode?: string;
 }>();
+
+/** Benchmarks (1Y return & volatility as decimals). Plotted as dots. */
+interface Benchmark {
+  code: string;
+  volatility_1y: number;
+  return_1y: number;
+}
+
+const BENCHMARKS: Benchmark[] = [
+  { code: "MSCI World", volatility_1y: 0.15, return_1y: 0.1894 },
+  { code: "S&P 500", volatility_1y: 0.1817, return_1y: 0.1487 },
+  { code: "MSCI EM", volatility_1y: 0.1661, return_1y: 0.3632 },
+  { code: "STOXX Europe 600", volatility_1y: 0.1537, return_1y: 0.0819 },
+  { code: "FTSE 100", volatility_1y: 0.1232, return_1y: 0.2509 },
+];
 
 const emit = defineEmits<{
   "update:universe": [value: string];
@@ -91,6 +107,12 @@ const margin = { top: 30, right: 20, bottom: 50, left: 60 };
 
 const hoveredStock = ref<{
   stock: Stock;
+  cx: number;
+  cy: number;
+} | null>(null);
+
+const hoveredBenchmark = ref<{
+  benchmark: Benchmark;
   cx: number;
   cy: number;
 } | null>(null);
@@ -379,6 +401,7 @@ function onPointEnter(stock: Stock): void {
   if (isTourActive.value) return;
   const cx = xScale.value(getVol(stock));
   const cy = yScale.value(getRet(stock));
+  hoveredBenchmark.value = null;
   hoveredStock.value = { stock, cx, cy };
 }
 
@@ -392,24 +415,50 @@ function selectUniverse(option: (typeof UNIVERSE_OPTIONS)[number]): void {
   document.removeEventListener("click", closeUniverseMenuOnClickOutside);
 }
 
-function tooltipText(stock: Stock): string {
-  const vol = (getVol(stock) * 100).toFixed(1);
-  const ret = (getRet(stock) * 100).toFixed(1);
-  const group = getGroupValue(stock);
-  return `${stock.code} (${group}): Vol ${vol}%, Ret ${ret}%`;
+function onBenchmarkEnter(benchmark: Benchmark): void {
+  const cx = xScale.value(benchmark.volatility_1y);
+  const cy = yScale.value(benchmark.return_1y);
+  hoveredBenchmark.value = { benchmark, cx, cy };
+  hoveredStock.value = null;
+}
+
+function onBenchmarkLeave(): void {
+  hoveredBenchmark.value = null;
+}
+
+/** One item for tooltip (stock or benchmark). */
+const tooltipItem = computed(() => hoveredBenchmark.value?.benchmark ?? hoveredStock.value?.stock ?? null);
+
+function tooltipVol(item: { volatility_1y?: number | null }): string {
+  return ((item.volatility_1y ?? 0) * 100).toFixed(1);
+}
+
+function tooltipRet(item: { return_1y?: number | null }): string {
+  return ((item.return_1y ?? 0) * 100).toFixed(1);
+}
+
+function tooltipRetColor(item: { return_1y?: number | null }): string {
+  if ((item.return_1y ?? 0) >= 0) return "#2d8a5e";
+  return "#c94a4a";
 }
 
 const tooltipX = computed(() => {
-  if (!hoveredStock.value) return 0;
+  const h = hoveredStock.value ?? hoveredBenchmark.value;
+  if (!h) return 0;
   const t = currentTransform.value;
-  return hoveredStock.value.cx * t.k + t.x + 14;
+  return h.cx * t.k + t.x + 14;
 });
 
 const tooltipY = computed(() => {
-  if (!hoveredStock.value) return 0;
+  const h = hoveredStock.value ?? hoveredBenchmark.value;
+  if (!h) return 0;
   const t = currentTransform.value;
-  return hoveredStock.value.cy * t.k + t.y - 10;
+  return h.cy * t.k + t.y - 10;
 });
+
+const TOOLTIP_WIDTH = 124;
+const TOOLTIP_HEIGHT = 62;
+const TOOLTIP_PAD_X = 12;
 </script>
 
 <template>
@@ -522,6 +571,15 @@ const tooltipY = computed(() => {
               :height="height - margin.top - margin.bottom"
             />
           </clipPath>
+          <!-- Soft glow for benchmark stars -->
+          <filter id="star-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
 
         <!-- Clipped content with zoom transform -->
@@ -539,6 +597,20 @@ const tooltipY = computed(() => {
               class="data-point"
               @mouseenter="onPointEnter(stock)"
               @mouseleave="onPointLeave"
+            />
+            <circle
+              v-for="bm in BENCHMARKS"
+              :key="bm.code"
+              :cx="xScale(bm.volatility_1y)"
+              :cy="yScale(bm.return_1y)"
+              :r="5.3 / currentTransform.k"
+              class="benchmark-dot"
+              fill="#ffed29"
+              stroke="#0c1743"
+              stroke-width="0.5"
+              filter="url(#star-glow)"
+              @mouseenter="onBenchmarkEnter(bm)"
+              @mouseleave="onBenchmarkLeave"
             />
           </g>
         </g>
@@ -587,23 +659,79 @@ const tooltipY = computed(() => {
           {{ currentTourLabel }}
         </text>
 
-        <!-- Tooltip -->
+        <!-- Tooltip card (stock or benchmark) -->
         <g
-          v-if="hoveredStock && !isTourActive"
+          v-if="tooltipItem && !isTourActive"
           :transform="`translate(${tooltipX}, ${tooltipY})`"
+          class="scatter-tooltip"
         >
           <rect
-            :width="tooltipText(hoveredStock.stock).length * 7.2 + 16"
-            height="26"
-            rx="4"
+            :width="TOOLTIP_WIDTH"
+            :height="TOOLTIP_HEIGHT"
+            rx="6"
             fill="#ffffff"
-            fill-opacity="0.9"
+            fill-opacity="0.97"
             stroke="#d8dde2"
-            y="-18"
-            x="-4"
+            stroke-width="1"
+            :y="8 - TOOLTIP_HEIGHT"
+            x="0"
           />
-          <text fill="#4b4b4b" font-size="12" font-family="'Fira Sans', sans-serif" y="-1">
-            {{ tooltipText(hoveredStock.stock) }}
+          <line
+            :x1="TOOLTIP_PAD_X"
+            :y1="37 - TOOLTIP_HEIGHT"
+            :x2="TOOLTIP_WIDTH - TOOLTIP_PAD_X"
+            :y2="37 - TOOLTIP_HEIGHT"
+            stroke="#e8ebf0"
+            stroke-width="1"
+          />
+          <text
+            font-size="12"
+            font-weight="600"
+            font-family="'Fira Sans', sans-serif"
+            fill="#0c1743"
+            :x="TOOLTIP_PAD_X"
+            :y="26 - TOOLTIP_HEIGHT"
+          >
+            {{ tooltipItem.code }}
+          </text>
+          <text
+            font-size="11"
+            font-family="'Fira Sans', sans-serif"
+            fill="#495057"
+            :x="TOOLTIP_PAD_X"
+            :y="48 - TOOLTIP_HEIGHT"
+          >
+            Volatility
+          </text>
+          <text
+            font-size="11"
+            font-family="'Fira Sans', sans-serif"
+            fill="#495057"
+            :x="TOOLTIP_WIDTH - TOOLTIP_PAD_X"
+            :y="48 - TOOLTIP_HEIGHT"
+            text-anchor="end"
+          >
+            {{ tooltipVol(tooltipItem) }}%
+          </text>
+          <text
+            font-size="11"
+            font-family="'Fira Sans', sans-serif"
+            fill="#495057"
+            :x="TOOLTIP_PAD_X"
+            :y="60 - TOOLTIP_HEIGHT"
+          >
+            1Y Return
+          </text>
+          <text
+            font-size="11"
+            font-weight="600"
+            font-family="'Fira Sans', sans-serif"
+            :fill="tooltipRetColor(tooltipItem)"
+            :x="TOOLTIP_WIDTH - TOOLTIP_PAD_X"
+            :y="60 - TOOLTIP_HEIGHT"
+            text-anchor="end"
+          >
+            {{ (tooltipItem.return_1y ?? 0) >= 0 ? '+' : '' }}{{ tooltipRet(tooltipItem) }}%
           </text>
         </g>
       </svg>
@@ -626,6 +754,20 @@ const tooltipY = computed(() => {
 </template>
 
 <style scoped>
+.benchmark-dot {
+  cursor: pointer;
+  animation: star-sparkle 2.2s ease-in-out infinite;
+}
+
+@keyframes star-sparkle {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
 .scatter-container {
   padding: 12px 20px 6px;
   height: 100%;

@@ -21,6 +21,17 @@ const { messages, isSending, sendMessage, confirmFilters, dismissFilters } =
 
 const input = ref("");
 const messagesEl = ref<HTMLElement | null>(null);
+const chatInputEl = ref<HTMLInputElement | null>(null);
+
+function focusInput(): void {
+  chatInputEl.value?.focus();
+}
+
+function clearHistory(): void {
+  handleClearChat();
+}
+
+defineExpose({ focusInput, clearHistory });
 
 const lastPendingIndex = computed<number>(() => {
   for (let i = messages.value.length - 1; i >= 0; i--) {
@@ -174,6 +185,7 @@ function appliedBadgeLabel(msg: ChatMessage): string {
 
     <div class="pl-chat-input-row">
       <input
+        ref="chatInputEl"
         v-model="input"
         type="text"
         :placeholder="'Ask about stocks...'"

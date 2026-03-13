@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import TopBar from "./components/TopBar.vue";
 import FilterBar from "./components/FilterBar.vue";
 import AiChat from "./components/AiChat.vue";
 import ScatterChart from "./components/ScatterChart.vue";
 import StockTable from "./components/StockTable.vue";
 import AlertManagement from "./components/AlertManagement.vue";
+import ShortcutHelpOverlay from "./components/ShortcutHelpOverlay.vue";
 import SplashScreen from "./components/SplashScreen.vue";
 import { useStocks, aiFiltersToChips } from "./composables/useStocks";
+import { getShortcutCommand, executeShortcutCommand } from "./composables/shortcuts";
 import type { UniverseFilters, FilterChip } from "./types/stock";
 
 const selectedUniverse = ref<string>("Equities");
@@ -17,6 +19,7 @@ const {
   filteredStocks,
   filterChips,
   aiFilters,
+  universeViewMode,
   isLoading,
   error,
   fetchStocks,
@@ -27,9 +30,47 @@ const {
   removeAiFilters,
   clearAiFilters,
   clearAllFilters,
+  setUniverseViewMode,
   restoreFilters,
 } = useStocks();
 
+const showHelp = ref(false);
+const chatRef = ref<InstanceType<typeof AiChat> | null>(null);
+
+function runCommand(code: string): void {
+  const command = getShortcutCommand(code);
+  if (!command) return;
+  executeShortcutCommand(command, {
+    clearAllFilters,
+    applyAiFilters,
+    setUniverseViewMode,
+    focusChat: () => chatRef.value?.focusInput(),
+    clearChat: () => chatRef.value?.clearHistory(),
+    openHelp: () => (showHelp.value = true),
+  });
+}
+
+function handleCommandBarCommand(code: string): void {
+  runCommand(code);
+}
+
+function handleGlobalKeydown(e: KeyboardEvent): void {
+  if (e.key === "Escape" && showHelp.value) {
+    showHelp.value = false;
+    e.preventDefault();
+    return;
+  }
+
+  const target = e.target as HTMLElement;
+  const isInput = /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? "") || target?.isContentEditable;
+  if (isInput) return;
+
+  const key = e.key;
+  const command = getShortcutCommand(key);
+  if (!command) return;
+  e.preventDefault();
+  runCommand(key);
+}
 const showSplash = ref(true);
 
 const displayChips = computed<FilterChip[]>(() => {
@@ -70,13 +111,19 @@ function handleNavigate(view: string): void {
 onMounted(() => {
   restoreFilters();
   fetchStocks();
+  document.addEventListener("keydown", handleGlobalKeydown);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("keydown", handleGlobalKeydown);
 });
 </script>
 
 <template>
   <SplashScreen v-if="showSplash" @done="showSplash = false" />
   <div class="pl-app">
-    <TopBar :current-view="currentView" @navigate="handleNavigate" />
+    <ShortcutHelpOverlay v-model="showHelp" />
+    <TopBar :current-view="currentView" @navigate="handleNavigate" @command="handleCommandBarCommand" />
     <div class="pl-main">
       <template v-if="currentView === 'universe'">
         <div class="pl-chart-chat-row">
@@ -84,6 +131,7 @@ onMounted(() => {
             <ScatterChart
               :stocks="filteredStocks"
               :selected-universe="selectedUniverse"
+              :view-mode="universeViewMode"
               @update:universe="selectedUniverse = $event"
             />
           </section>
@@ -95,6 +143,7 @@ onMounted(() => {
               @update:filter-chips="handleUpdateFilterChips"
             />
             <AiChat
+              ref="chatRef"
               @set-filters="handleSetFilters"
               @apply-filters="handleAiFilters"
               @remove-filters="handleRemoveFilters"
@@ -112,6 +161,7 @@ onMounted(() => {
             <section class="pl-table-card">
               <StockTable
                 :stocks="filteredStocks"
+                :view-mode="universeViewMode"
                 :is-loading="isLoading"
                 :error="error"
                 :pinned-codes="pinnedCodes"

@@ -236,6 +236,8 @@ export function useStocks() {
   const error = ref<string | null>(null);
   const filterChips = ref<FilterChip[]>([]);
   const aiFilters = ref<UniverseFilters | null>(null);
+  /** View mode for chart/table: default | sharpe | drawdown | volatility | movers | portfolio | diversifiers */
+  const universeViewMode = ref("");
 
   const filteredStocks = computed<Stock[]>(() => {
     let result = stocks.value;
@@ -314,7 +316,12 @@ export function useStocks() {
   function clearAllFilters(): void {
     filterChips.value = [];
     aiFilters.value = null;
+    universeViewMode.value = "";
     _persistFilters();
+  }
+
+  function setUniverseViewMode(mode: string): void {
+    universeViewMode.value = mode;
   }
 
   function _persistFilters(): void {
@@ -355,6 +362,7 @@ export function useStocks() {
     filteredStocks,
     filterChips,
     aiFilters,
+    universeViewMode,
     isLoading,
     error,
     fetchStocks,
@@ -367,6 +375,7 @@ export function useStocks() {
     removeAiFilters,
     clearAiFilters,
     clearAllFilters,
+    setUniverseViewMode,
     restoreFilters,
   };
 }
