@@ -4,47 +4,56 @@ import { Scatter } from "vue-chartjs";
 import {
   Chart as ChartJS,
   LinearScale,
+  LogarithmicScale,
   PointElement,
   Tooltip,
   Legend,
 } from "chart.js";
 import type { Stock } from "../types/stock";
 
-ChartJS.register(LinearScale, PointElement, Tooltip, Legend);
+ChartJS.register(LinearScale, LogarithmicScale, PointElement, Tooltip, Legend);
 
 const props = defineProps<{
   stocks: Stock[];
 }>();
 
-const sectorColors: Record<string, string> = {
-  Technology: "#6c5ce7",
-  Financials: "#00cec9",
-  Healthcare: "#ff6b6b",
-  Energy: "#ffa502",
+const INDUSTRY_COLORS: Record<string, string> = {
+  "Technology": "#6c5ce7",
+  "Financials": "#00cec9",
+  "Healthcare": "#ff6b6b",
+  "Energy": "#ffa502",
   "Consumer Discretionary": "#a29bfe",
   "Consumer Staples": "#51cf66",
+  "Industrials": "#fd79a8",
+  "Materials": "#e17055",
+  "Real Estate": "#74b9ff",
+  "Utilities": "#55efc4",
+  "Telecommunications": "#636e72",
+  "Energy - Fossil Fuels": "#f39c12",
+  "Energy - Renewable Energy": "#2ecc71",
 };
 
 const chartData = computed(() => {
-  const bySector = new Map<string, { x: number; y: number; label: string }[]>();
+  const byIndustry = new Map<string, { x: number; y: number; label: string }[]>();
 
   for (const s of props.stocks) {
-    const points = bySector.get(s.sector) ?? [];
+    if (s.market_cap == null || s.pe_ratio == null) continue;
+    const points = byIndustry.get(s.industry) ?? [];
     points.push({
-      x: s.market_cap / 1e9,
-      y: s.pe_ratio ?? 0,
-      label: s.ticker,
+      x: s.market_cap,
+      y: s.pe_ratio,
+      label: s.code,
     });
-    bySector.set(s.sector, points);
+    byIndustry.set(s.industry, points);
   }
 
   return {
-    datasets: Array.from(bySector.entries()).map(([sector, points]) => ({
-      label: sector,
+    datasets: Array.from(byIndustry.entries()).map(([industry, points]) => ({
+      label: industry,
       data: points,
-      backgroundColor: sectorColors[sector] ?? "#8b8fa3",
-      pointRadius: 8,
-      pointHoverRadius: 11,
+      backgroundColor: INDUSTRY_COLORS[industry] ?? "#8b8fa3",
+      pointRadius: 5,
+      pointHoverRadius: 8,
     })),
   };
 });
@@ -52,23 +61,27 @@ const chartData = computed(() => {
 const chartOptions = {
   responsive: true,
   maintainAspectRatio: false,
+  animation: { duration: 0 } as const,
   plugins: {
     legend: {
       position: "top" as const,
-      labels: { color: "#8b8fa3", font: { size: 11 } },
+      labels: { color: "#8b8fa3", font: { size: 10 }, boxWidth: 10 },
     },
     tooltip: {
       callbacks: {
         label: (ctx: unknown) => {
-          const { label, x, y } = (ctx as { raw: { label: string; x: number; y: number } }).raw;
-          return `${label}: Mkt Cap $${x.toFixed(0)}B, P/E ${y.toFixed(1)}`;
+          const { label, x, y } = (
+            ctx as { raw: { label: string; x: number; y: number } }
+          ).raw;
+          return `${label}: Mkt Cap $${x.toLocaleString(undefined, { maximumFractionDigits: 0 })}, P/E ${y.toFixed(1)}`;
         },
       },
     },
   },
   scales: {
     x: {
-      title: { display: true, text: "Market Cap ($B)", color: "#8b8fa3" },
+      type: "logarithmic" as const,
+      title: { display: true, text: "Market Cap ($M)", color: "#8b8fa3" },
       grid: { color: "#2a2e3a" },
       ticks: { color: "#8b8fa3" },
     },
@@ -76,6 +89,8 @@ const chartOptions = {
       title: { display: true, text: "P/E Ratio", color: "#8b8fa3" },
       grid: { color: "#2a2e3a" },
       ticks: { color: "#8b8fa3" },
+      min: 0,
+      max: 100,
     },
   },
 };

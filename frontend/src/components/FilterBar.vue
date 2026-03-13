@@ -23,108 +23,42 @@ interface Suggestion {
   display: string;
 }
 
-function formatMktCap(value: number): string {
-  if (value >= 1e12) return `$${(value / 1e12).toFixed(1)}T`;
-  if (value >= 1e9) return `$${(value / 1e9).toFixed(1)}B`;
-  if (value >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
-  return `$${value}`;
-}
-
-function formatVol(value: number): string {
-  if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
-  if (value >= 1e3) return `${(value / 1e3).toFixed(1)}K`;
-  return String(value);
-}
+// Pre-compute unique values for categorical fields only (fast for autocomplete)
+const categoryIndex = computed(() => {
+  const allStocks = props.stocks;
+  return [
+    { category: "Country", values: [...new Set(allStocks.map((s) => s.country))].sort() },
+    { category: "Industry", values: [...new Set(allStocks.map((s) => s.industry))].sort() },
+    { category: "Sub-Industry", values: [...new Set(allStocks.map((s) => s.sub_industry))].sort() },
+    { category: "Exchange", values: [...new Set(allStocks.map((s) => s.exchange))].sort() },
+    { category: "Currency", values: [...new Set(allStocks.map((s) => s.currency))].sort() },
+    { category: "Ticker", values: allStocks.map((s) => s.code) },
+    { category: "Name", values: [...new Set(allStocks.map((s) => s.name))] },
+  ];
+});
 
 const suggestions = computed<Suggestion[]>(() => {
   const query = searchText.value.toLowerCase().trim();
   if (!query) return [];
 
-  const allStocks = props.stocks;
   const results: Suggestion[] = [];
 
-  const categoryValues: {
-    category: string;
-    entries: { value: string; display: string }[];
-  }[] = [
-    {
-      category: "Sector",
-      entries: [...new Set(allStocks.map((s) => s.sector))].map((v) => ({
-        value: v,
-        display: v,
-      })),
-    },
-    {
-      category: "Ticker",
-      entries: [...new Set(allStocks.map((s) => s.ticker))].map((v) => ({
-        value: v,
-        display: v,
-      })),
-    },
-    {
-      category: "Name",
-      entries: [...new Set(allStocks.map((s) => s.name))].map((v) => ({
-        value: v,
-        display: v,
-      })),
-    },
-    {
-      category: "Price",
-      entries: [...new Set(allStocks.map((s) => s.price.toFixed(2)))].map(
-        (v) => ({ value: v, display: `$${v}` })
-      ),
-    },
-    {
-      category: "Market Cap",
-      entries: [
-        ...new Set(allStocks.map((s) => formatMktCap(s.market_cap))),
-      ].map((v) => ({ value: v, display: v })),
-    },
-    {
-      category: "P/E",
-      entries: [
-        ...new Set(
-          allStocks
-            .filter((s) => s.pe_ratio != null)
-            .map((s) => s.pe_ratio!.toFixed(1))
-        ),
-      ].map((v) => ({ value: v, display: v })),
-    },
-    {
-      category: "Div Yield",
-      entries: [
-        ...new Set(
-          allStocks
-            .filter((s) => s.dividend_yield != null)
-            .map((s) => s.dividend_yield!.toFixed(2) + "%")
-        ),
-      ].map((v) => ({ value: v, display: v })),
-    },
-    {
-      category: "Volume",
-      entries: [...new Set(allStocks.map((s) => formatVol(s.volume)))].map(
-        (v) => ({ value: v, display: v })
-      ),
-    },
-  ];
-
-  for (const { category, entries } of categoryValues) {
-    for (const { value, display } of entries) {
-      if (
-        display.toLowerCase().includes(query) ||
-        value.toLowerCase().includes(query)
-      ) {
+  for (const { category, values } of categoryIndex.value) {
+    for (const value of values) {
+      if (value.toLowerCase().includes(query)) {
         const alreadySelected = props.filterChips.some(
           (c) => c.category === category && c.value === value
         );
         if (!alreadySelected) {
-          results.push({ category, value, display });
+          results.push({ category, value, display: value });
         }
       }
+      if (results.length >= 25) break;
     }
+    if (results.length >= 25) break;
   }
 
-  return results.slice(0, 25);
+  return results;
 });
 
 const groupedSuggestions = computed(() => {
@@ -206,7 +140,7 @@ function handleBackspace(): void {
       <span v-if="filterChips.length > 0" class="filter-badge">{{
         filterChips.length
       }}</span>
-      <span class="result-count">{{ resultCount }} results</span>
+      <span class="result-count">{{ resultCount.toLocaleString() }} results</span>
       <svg
         class="filter-chevron"
         width="12"
@@ -245,7 +179,7 @@ function handleBackspace(): void {
             v-model="searchText"
             type="text"
             class="search-input"
-            :placeholder="filterChips.length === 0 ? 'Search filters...' : ''"
+            :placeholder="filterChips.length === 0 ? 'Country, Industry, Ticker...' : ''"
             @input="handleInput"
             @focus="handleFocus"
             @blur="handleBlur"

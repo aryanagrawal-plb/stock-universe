@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import type { Stock } from "../types/stock";
 
 type SortKey = keyof Stock;
@@ -13,20 +13,27 @@ const props = defineProps<{
   error: string | null;
 }>();
 
-const sortKey = ref<SortKey>("ticker");
+const sortKey = ref<SortKey>("code");
 const sortDir = ref<SortDir>("asc");
 const pageSize = ref<number>(50);
 const currentPage = ref(1);
 
+// Reset to page 1 when the input dataset changes
+watch(() => props.stocks, () => { currentPage.value = 1; });
+
 const columns: { key: SortKey; label: string; numeric: boolean }[] = [
-  { key: "ticker", label: "Ticker", numeric: false },
+  { key: "code", label: "Ticker", numeric: false },
   { key: "name", label: "Name", numeric: false },
-  { key: "sector", label: "Sector", numeric: false },
+  { key: "country", label: "Country", numeric: false },
+  { key: "industry", label: "Industry", numeric: false },
+  { key: "currency", label: "Ccy", numeric: false },
   { key: "price", label: "Price", numeric: true },
   { key: "market_cap", label: "Mkt Cap", numeric: true },
   { key: "pe_ratio", label: "P/E", numeric: true },
-  { key: "dividend_yield", label: "Div Yield", numeric: true },
-  { key: "volume", label: "Volume", numeric: true },
+  { key: "pb_ratio", label: "P/B", numeric: true },
+  { key: "dividend_yield", label: "Div Yld", numeric: true },
+  { key: "return_ytd", label: "YTD %", numeric: true },
+  { key: "volatility_1y", label: "Vol 1Y", numeric: true },
 ];
 
 const sortedStocks = computed<Stock[]>(() => {
@@ -35,7 +42,7 @@ const sortedStocks = computed<Stock[]>(() => {
   const data = props.stocks;
   if (data.length === 0) return data;
 
-  const sorted = data.slice().sort((a, b) => {
+  return data.slice().sort((a, b) => {
     const av = a[key];
     const bv = b[key];
     if (av == null && bv == null) return 0;
@@ -44,8 +51,6 @@ const sortedStocks = computed<Stock[]>(() => {
     if (typeof av === "string") return av.localeCompare(bv as string) * dir;
     return ((av as number) - (bv as number)) * dir;
   });
-
-  return sorted;
 });
 
 const totalPages = computed(() =>
@@ -82,17 +87,21 @@ function changePageSize(size: number): void {
   currentPage.value = 1;
 }
 
-function formatMarketCap(value: number): string {
-  if (value >= 1e12) return `$${(value / 1e12).toFixed(1)}T`;
-  if (value >= 1e9) return `$${(value / 1e9).toFixed(1)}B`;
-  if (value >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
-  return `$${value}`;
+function formatMarketCap(value: number | null): string {
+  if (value == null) return "—";
+  if (value >= 1e6) return `$${(value / 1e6).toFixed(1)}T`;
+  if (value >= 1e3) return `$${(value / 1e3).toFixed(1)}B`;
+  return `$${value.toFixed(0)}M`;
 }
 
-function formatVolume(value: number): string {
-  if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
-  if (value >= 1e3) return `${(value / 1e3).toFixed(1)}K`;
-  return String(value);
+function formatPct(value: number | null): string {
+  if (value == null) return "—";
+  return `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)}%`;
+}
+
+function formatNum(value: number | null, decimals = 1): string {
+  if (value == null) return "—";
+  return value.toFixed(decimals);
 }
 </script>
 
@@ -122,20 +131,26 @@ function formatVolume(value: number): string {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="stock in pagedStocks" :key="stock.ticker">
-            <td class="ticker">{{ stock.ticker }}</td>
-            <td>{{ stock.name }}</td>
+          <tr v-for="stock in pagedStocks" :key="stock.code">
+            <td class="ticker">{{ stock.code }}</td>
+            <td class="name-cell">{{ stock.name }}</td>
+            <td>{{ stock.country }}</td>
             <td>
-              <span class="sector-badge">{{ stock.sector }}</span>
+              <span class="sector-badge">{{ stock.industry }}</span>
             </td>
-            <td class="num">${{ stock.price.toFixed(2) }}</td>
+            <td>{{ stock.currency }}</td>
+            <td class="num">{{ stock.price != null ? stock.price.toFixed(2) : "—" }}</td>
             <td class="num">{{ formatMarketCap(stock.market_cap) }}</td>
-            <td class="num">{{ stock.pe_ratio?.toFixed(1) ?? "—" }}</td>
+            <td class="num">{{ formatNum(stock.pe_ratio) }}</td>
+            <td class="num">{{ formatNum(stock.pb_ratio) }}</td>
             <td class="num">{{ stock.dividend_yield != null ? stock.dividend_yield.toFixed(2) + "%" : "—" }}</td>
-            <td class="num">{{ formatVolume(stock.volume) }}</td>
+            <td class="num" :class="{ positive: (stock.return_ytd ?? 0) > 0, negative: (stock.return_ytd ?? 0) < 0 }">
+              {{ formatPct(stock.return_ytd) }}
+            </td>
+            <td class="num">{{ formatNum(stock.volatility_1y, 2) }}</td>
           </tr>
           <tr v-if="!isLoading && stocks.length === 0">
-            <td colspan="8" class="empty-msg">No stocks match filters</td>
+            <td :colspan="columns.length" class="empty-msg">No stocks match filters</td>
           </tr>
         </tbody>
       </table>
@@ -197,7 +212,7 @@ function formatVolume(value: number): string {
 
 .stock-table th {
   text-align: left;
-  padding: 8px 12px;
+  padding: 8px 10px;
   font-weight: 500;
   color: var(--color-text-muted);
   font-size: 11px;
@@ -241,7 +256,7 @@ function formatVolume(value: number): string {
 }
 
 .stock-table td {
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--color-border);
   white-space: nowrap;
 }
@@ -262,6 +277,12 @@ function formatVolume(value: number): string {
   font-family: var(--font-mono);
 }
 
+.name-cell {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .sector-badge {
   display: inline-block;
   padding: 2px 8px;
@@ -269,6 +290,18 @@ function formatVolume(value: number): string {
   border-radius: 99px;
   background: var(--color-surface-hover);
   color: var(--color-text-muted);
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.positive {
+  color: var(--color-success);
+}
+
+.negative {
+  color: var(--color-danger);
 }
 
 .error-msg {
@@ -291,7 +324,6 @@ function formatVolume(value: number): string {
   padding: 24px 12px !important;
 }
 
-/* Footer / pagination */
 .table-footer {
   display: flex;
   align-items: center;
