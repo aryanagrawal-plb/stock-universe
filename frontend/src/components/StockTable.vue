@@ -5,6 +5,7 @@ import type { ColDef, GridReadyEvent, GridApi } from "ag-grid-community";
 import { icon as faIcon } from "@fortawesome/fontawesome-svg-core";
 import { faThumbtack } from "@fortawesome/free-solid-svg-icons";
 import type { Stock } from "../types/stock";
+import StockDetailPanel from "./StockDetailPanel.vue";
 import {
   TAB_COLUMNS,
   PINNED_COLUMNS,
@@ -185,6 +186,17 @@ function buildColDef(displayName: string): ColDef {
 const columnDefs = computed<ColDef[]>(() => {
   const defs: ColDef[] = [
     {
+      colId: "_expand",
+      headerName: "",
+      width: 36,
+      maxWidth: 36,
+      pinned: "left",
+      sortable: false,
+      resizable: false,
+      suppressMovable: true,
+      cellRenderer: "agGroupCellRenderer",
+    },
+    {
       colId: "_pin",
       headerName: "",
       width: 40,
@@ -296,6 +308,9 @@ const popupParent =
         :pinnedTopRowData="pinnedRows"
         :columnDefs="columnDefs"
         :defaultColDef="defaultColDef"
+        :masterDetail="true"
+        :detailCellRenderer="StockDetailPanel"
+        :detailRowHeight="280"
         :pagination="true"
         :paginationPageSize="pageSize"
         :suppressPaginationPanel="false"
