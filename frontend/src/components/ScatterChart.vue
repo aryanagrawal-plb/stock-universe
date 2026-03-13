@@ -73,6 +73,12 @@ const PERIOD_OPTIONS: PeriodOption[] = [
 ];
 
 const selectedPeriod = ref<PeriodOption>(PERIOD_OPTIONS[3]);
+const showPeriodDropdown = ref(false);
+
+function selectPeriod(opt: PeriodOption): void {
+  selectedPeriod.value = opt;
+  showPeriodDropdown.value = false;
+}
 
 const containerRef = ref<HTMLDivElement | null>(null);
 const svgRef = ref<SVGSVGElement | null>(null);
@@ -414,10 +420,10 @@ const tooltipY = computed(() => {
         class="universe-dropdown"
         @click.stop="toggleUniverseMenu"
       >
-        <h3 class="scatter-title">
-          My Universe
+        <h3 class="scatter-title" >
+          <span style="margin-right: 1rem">My Universe</span>
           <span class="universe-selection">{{ displayUniverse }}</span>
-          <span class="universe-chevron">&#9660;</span>
+          <span class="universe-chevron"></span>
         </h3>
         <div v-show="isUniverseMenuOpen" class="universe-menu">
           <button
@@ -432,16 +438,26 @@ const tooltipY = computed(() => {
         </div>
       </div>
 
-      <div v-if="displayUniverse === 'Equities'" class="period-selector">
-        <button
-          v-for="p in PERIOD_OPTIONS"
-          :key="p.label"
-          class="period-btn"
-          :class="{ active: selectedPeriod.label === p.label }"
-          @click="selectedPeriod = p"
-        >
-          {{ p.label }}
-        </button>
+      <div
+        v-if="displayUniverse === 'Equities'"
+        class="period-selector-wrap"
+        @click.stop="showPeriodDropdown = !showPeriodDropdown"
+      >
+        <span class="period-label">
+          <span class="universe-selection">{{ selectedPeriod.label }}</span>
+          <span class="universe-chevron"></span>
+        </span>
+        <div v-show="showPeriodDropdown" class="universe-menu">
+          <button
+            v-for="p in PERIOD_OPTIONS"
+            :key="p.label"
+            class="universe-option"
+            :class="{ active: selectedPeriod.label === p.label }"
+            @click.stop="selectPeriod(p)"
+          >
+            {{ p.label }}
+          </button>
+        </div>
       </div>
 
       <div class="header-spacer"></div>
@@ -638,6 +654,7 @@ const tooltipY = computed(() => {
   font-weight: 600;
   color: #495057;
   flex-shrink: 0;
+  margin-bottom: 0;
 }
 
 .header-spacer {
@@ -704,8 +721,15 @@ const tooltipY = computed(() => {
 }
 
 .universe-chevron {
-  color: #1a85a1;
-  font-size: 10px;
+  font-size: 0.875rem;
+  display: inline-block;
+  margin-left: 0.25em;
+  vertical-align: middle;
+  /* transform: translateY(-2px); */
+  border-top: 0.3em solid #1a85a1;
+  border-right: 0.3em solid transparent;
+  border-bottom: 0;
+  border-left: 0.3em solid transparent;
 }
 
 .universe-menu {
@@ -757,36 +781,15 @@ const tooltipY = computed(() => {
 }
 
 /* Period selector */
-.period-selector {
-  display: flex;
-  gap: 2px;
-  background: #f1f3f5;
-  border-radius: 5px;
-  padding: 2px;
-}
-
-.period-btn {
-  padding: 3px 9px;
-  font-size: 11px;
-  font-weight: 600;
-  font-family: 'Fira Sans', sans-serif;
-  color: #6c757d;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
+.period-selector-wrap {
+  position: relative;
   cursor: pointer;
-  transition: all 0.15s;
 }
 
-.period-btn:hover {
+.period-label {
+  font-size: 14px;
+  font-weight: 600;
   color: #495057;
-  background: #e9ecef;
-}
-
-.period-btn.active {
-  color: #fff;
-  background: #1a85a1;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
 }
 
 /* Tour controls — right aligned */
