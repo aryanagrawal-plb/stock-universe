@@ -16,8 +16,8 @@
   --ag-range-selection-border-color:   #{$info};
   --ag-cell-horizontal-padding:        12px;
   --ag-row-border-color:               #{$gray-500};
-  --ag-header-height:                  42px;
-  --ag-row-height:                     58px;
+  --ag-header-height:                  75px;
+  --ag-row-height:                     55px;
 
   .ag-root-wrapper,
   .ag-header,
@@ -34,6 +34,7 @@
 
   .ag-header-cell-label {
     font-size: 11px;
+    justify-content: flex-start;
   }
 
   .ag-paging-panel {
@@ -46,8 +47,15 @@
     align-items: center;
   }
 
-  .ag-right-aligned-header .ag-header-cell-label {
-    justify-content: flex-end;
+  .ag-cell {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    border-right: 1px solid var(--ag-border-color);
+  }
+
+  .ag-header-cell {
+    border-right: 1px solid var(--ag-border-color);
   }
 
   .ag-column-sorted {

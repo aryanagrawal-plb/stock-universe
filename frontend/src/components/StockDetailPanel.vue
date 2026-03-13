@@ -79,7 +79,7 @@ function formatMetricValue(key: string, val: unknown): string {
       </div>
     </section>
     <section v-if="stockData" class="stock-detail-section stock-detail-metrics">
-      <h4 class="stock-detail-section-title">Key metrics</h4>
+      <h4 class="stock-detail-section-title">Stock fundamentals</h4>
       <div class="stock-detail-header">
         <strong>{{ stockData.name }}</strong>
         <span class="stock-detail-ticker">{{ stockData.ticker }}</span>
@@ -121,8 +121,10 @@ function formatMetricValue(key: string, val: unknown): string {
   min-width: 0;
 }
 
+/* Left: returns graph */
 .stock-detail-returns {
   flex: 1;
+  min-width: 0;
 }
 
 .stock-detail-section-title {
@@ -138,6 +140,7 @@ function formatMetricValue(key: string, val: unknown): string {
   min-width: 0;
 }
 
+/* Right: stock fundamentals */
 .stock-detail-metrics {
   width: 260px;
   min-width: 260px;
