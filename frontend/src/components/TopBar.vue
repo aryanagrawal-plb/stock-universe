@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { computed } from "vue";
 import logoUrl from "@/assets/new-premialab-logo.svg";
 import AlertBell from "./AlertBell.vue";
 import type { UniverseFilters } from "../types/stock";
@@ -10,7 +10,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "navigate", view: string): void;
-  (e: "command", code: string): void;
   (e: "apply-alert", filters: UniverseFilters): void;
 }>();
 
@@ -29,15 +28,6 @@ const activeView = computed(() => props.currentView ?? "universe");
 
 function handleNav(view: string): void {
   emit("navigate", view);
-}
-
-const commandInput = ref("");
-
-function submitCommand(): void {
-  const code = commandInput.value.trim();
-  if (!code) return;
-  emit("command", code);
-  commandInput.value = "";
 }
 </script>
 
@@ -60,20 +50,6 @@ function submitCommand(): void {
           {{ item.label }}
         </a>
       </nav>
-
-      <!-- <div class="pl-command-bar">
-        <input
-          v-model="commandInput"
-          type="text"
-          class="pl-command-input"
-          placeholder="OV, PF, SH, …"
-          maxlength="4"
-          autocomplete="off"
-          spellcheck="false"
-          @keydown.enter="submitCommand"
-        />
-        <span class="pl-command-hint">2–3 letters + Enter</span>
-      </div> -->
 
       <div class="pl-navbar-right">
         <AlertBell
@@ -150,42 +126,6 @@ function submitCommand(): void {
     background: #fff;
     border-color: rgba(12, 23, 67, 0.2);
   }
-}
-
-.pl-command-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.pl-command-input {
-  width: 72px;
-  padding: 4px 8px;
-  font-family: "Roboto Mono", monospace;
-  font-size: 12px;
-  letter-spacing: 0.5px;
-  color: #0c1743;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 4px;
-  outline: none;
-
-  &::placeholder {
-    color: #495057;
-    opacity: 0.7;
-  }
-
-  &:focus {
-    border-color: #1a85a1;
-    box-shadow: 0 0 0 2px rgba(26, 133, 161, 0.3);
-  }
-}
-
-.pl-command-hint {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.5);
-  white-space: nowrap;
 }
 
 .pl-navbar-right {

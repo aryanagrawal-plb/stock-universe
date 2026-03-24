@@ -1,15 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed } from "vue";
+import { ref, onMounted, computed } from "vue";
 import TopBar from "./components/TopBar.vue";
 import FilterBar from "./components/FilterBar.vue";
 import AiChat from "./components/AiChat.vue";
 import ScatterChart from "./components/ScatterChart.vue";
 import StockTable from "./components/StockTable.vue";
 import AlertManagement from "./components/AlertManagement.vue";
-import ShortcutHelpOverlay from "./components/ShortcutHelpOverlay.vue";
 import SplashScreen from "./components/SplashScreen.vue";
 import { useStocks, aiFiltersToChips } from "./composables/useStocks";
-import { getShortcutCommand, executeShortcutCommand } from "./composables/shortcuts";
 import type { UniverseFilters, FilterChip } from "./types/stock";
 
 const selectedUniverse = ref<string>("Equities");
@@ -34,43 +32,8 @@ const {
   restoreFilters,
 } = useStocks();
 
-const showHelp = ref(false);
 const chatRef = ref<InstanceType<typeof AiChat> | null>(null);
 
-function runCommand(code: string): void {
-  const command = getShortcutCommand(code);
-  if (!command) return;
-  executeShortcutCommand(command, {
-    clearAllFilters,
-    applyAiFilters,
-    setUniverseViewMode,
-    focusChat: () => chatRef.value?.focusInput(),
-    clearChat: () => chatRef.value?.clearHistory(),
-    openHelp: () => (showHelp.value = true),
-  });
-}
-
-function handleCommandBarCommand(code: string): void {
-  runCommand(code);
-}
-
-function handleGlobalKeydown(e: KeyboardEvent): void {
-  if (e.key === "Escape" && showHelp.value) {
-    showHelp.value = false;
-    e.preventDefault();
-    return;
-  }
-
-  const target = e.target as HTMLElement;
-  const isInput = /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? "") || target?.isContentEditable;
-  if (isInput) return;
-
-  const key = e.key;
-  const command = getShortcutCommand(key);
-  if (!command) return;
-  e.preventDefault();
-  runCommand(key);
-}
 const showSplash = ref(true);
 
 const displayChips = computed<FilterChip[]>(() => {
@@ -102,6 +65,11 @@ function handleClearFilters(): void {
   clearAllFilters();
 }
 
+function handleClearChatAndFilters(): void {
+  chatRef.value?.clearHistory();
+  clearAllFilters();
+}
+
 const currentView = ref("universe");
 
 function handleNavigate(view: string): void {
@@ -117,22 +85,15 @@ function handleApplyAlert(filters: UniverseFilters): void {
 onMounted(() => {
   restoreFilters();
   fetchStocks();
-  document.addEventListener("keydown", handleGlobalKeydown);
-});
-
-onBeforeUnmount(() => {
-  document.removeEventListener("keydown", handleGlobalKeydown);
 });
 </script>
 
 <template>
   <SplashScreen v-if="showSplash" @done="showSplash = false" />
   <div class="pl-app">
-    <ShortcutHelpOverlay v-model="showHelp" />
     <TopBar
       :current-view="currentView"
       @navigate="handleNavigate"
-      @command="handleCommandBarCommand"
       @apply-alert="handleApplyAlert"
     />
     <div class="pl-main">
@@ -152,6 +113,7 @@ onBeforeUnmount(() => {
               :filter-chips="displayChips"
               :result-count="totalResultCount"
               @update:filter-chips="handleUpdateFilterChips"
+              @clear-chat="handleClearChatAndFilters"
             />
             <AiChat
               ref="chatRef"

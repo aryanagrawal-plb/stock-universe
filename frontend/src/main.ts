@@ -16,6 +16,7 @@ import {
   faBell,
   faTimes,
   faArrowRight,
+  faTrashCan,
 } from "@fortawesome/free-solid-svg-icons";
 
 library.add(
@@ -30,6 +31,7 @@ library.add(
   faBell,
   faTimes,
   faArrowRight,
+  faTrashCan,
 );
 
 import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";

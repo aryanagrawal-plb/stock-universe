@@ -10,6 +10,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   "update:filterChips": [chips: FilterChip[]];
+  "clear-chat": [];
 }>();
 
 const isExpanded = ref(false);
@@ -122,19 +123,30 @@ function handleBackspace(): void {
 
 <template>
   <div class="pl-filter-panel" :class="{ expanded: isExpanded }">
-    <div class="pl-filter-toggle-wrapper">
-      <button class="pl-filter-toggle" @click="isExpanded = !isExpanded">
-        <icon icon="filter" class="pl-filter-icon" />
-        <span class="pl-filter-label">Filters</span>
-        <span v-if="filterChips.length > 0" class="pl-filter-badge">{{
-          filterChips.length
-        }}</span>
-        <icon
-          :icon="isExpanded ? 'chevron-up' : 'chevron-down'"
-          class="pl-filter-chevron"
-        />
+    <div class="pl-filter-header">
+      <div class="pl-filter-toggle-wrapper">
+        <button class="pl-filter-toggle" @click="isExpanded = !isExpanded">
+          <icon icon="filter" class="pl-filter-icon" />
+          <span class="pl-filter-label">Filters</span>
+          <span v-if="filterChips.length > 0" class="pl-filter-badge">{{
+            filterChips.length
+          }}</span>
+          <icon
+            :icon="isExpanded ? 'chevron-up' : 'chevron-down'"
+            class="pl-filter-chevron"
+          />
+        </button>
+        <span class="pl-result-popover">{{ resultCount.toLocaleString() }} results</span>
+      </div>
+      <button
+        type="button"
+        class="pl-clear-chat-btn"
+        title="Clear chat and all filters"
+        aria-label="Clear chat and all filters"
+        @click="emit('clear-chat')"
+      >
+        <icon icon="trash-can" class="pl-clear-chat-icon" />
       </button>
-      <span class="pl-result-popover">{{ resultCount.toLocaleString() }} results</span>
     </div>
 
     <div v-if="isExpanded" class="pl-filter-body">
@@ -210,13 +222,47 @@ function handleBackspace(): void {
   z-index: 10;
 }
 
+.pl-filter-header {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
 .pl-filter-toggle-wrapper {
   position: relative;
+  flex: 1;
+  min-width: 0;
 
   &:hover .pl-result-popover {
     opacity: 1;
     visibility: visible;
   }
+}
+
+.pl-clear-chat-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 38px;
+  margin: 6px 10px 6px 0;
+  padding: 0;
+  color: #8b8fa3;
+  background: transparent;
+  border: 1px solid #d8dde2;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+
+  &:hover {
+    color: #d9534f;
+    background: rgba(217, 83, 79, 0.06);
+    border-color: rgba(217, 83, 79, 0.35);
+  }
+}
+
+.pl-clear-chat-icon {
+  font-size: 14px;
 }
 
 .pl-result-popover {
